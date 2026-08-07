@@ -1,0 +1,12 @@
+build/
+demucs-env/
+output/
+separated/
+input/
+*.wav
+*.mp3
+*.exe
+*.dll
+.vs/
+.vscode/
+__pycache__/
