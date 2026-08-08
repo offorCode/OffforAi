@@ -828,6 +828,46 @@ void StemTrackComponent::setPlayheadPosition(
 
 
 // ==========================================================
+// Selection Start
+// ==========================================================
+
+double StemTrackComponent::getSelectionStart() const
+{
+    return selectionStart;
+}
+
+
+// ==========================================================
+// Selection End
+// ==========================================================
+
+double StemTrackComponent::getSelectionEnd() const
+{
+    return selectionEnd;
+}
+
+
+// ==========================================================
+// Has Selection
+// ==========================================================
+
+bool StemTrackComponent::hasSelection() const
+{
+    return selectionEnd > selectionStart;
+}
+
+
+// ==========================================================
+// Audio File
+// ==========================================================
+
+juce::File StemTrackComponent::getAudioFile() const
+{
+    return audioFile;
+}
+
+
+// ==========================================================
 // Volume
 // ==========================================================
 

@@ -154,6 +154,11 @@ private:
         "OPEN OUTPUT FOLDER"
     };
 
+    juce::TextButton exportSelectionButton
+    {
+        "EXPORT SELECTION"
+    };
+
 
     juce::Label fileLabel;
 
@@ -249,6 +254,8 @@ private:
     void clearSeparatedStems();
 
     void openOutputFolder();
+
+    void exportSelectedAudio();
 
     void setStatus(
         const juce::String& message

@@ -48,6 +48,13 @@ public:
         double positionInSeconds
     );
 
+    double getSelectionStart() const;
+    double getSelectionEnd() const;
+
+    bool hasSelection() const;
+
+    juce::File getAudioFile() const;
+
     double getPlayheadPosition() const
     {
         return playheadPosition;
@@ -115,20 +122,6 @@ public:
     // Selection
     // ==========================================================
 
-    bool hasSelection() const
-    {
-        return selectionEnd > selectionStart;
-    }
-
-    double getSelectionStart() const
-    {
-        return selectionStart;
-    }
-
-    double getSelectionEnd() const
-    {
-        return selectionEnd;
-    }
 
     double getSelectionLength() const
     {

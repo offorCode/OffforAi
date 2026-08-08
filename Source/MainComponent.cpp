@@ -432,6 +432,20 @@ MainComponent::MainComponent()
 
 
     // ==========================================================
+    // Export Selection Button
+    // ==========================================================
+
+    addAndMakeVisible(
+        exportSelectionButton
+    );
+
+    exportSelectionButton.onClick = [this]
+    {
+        exportSelectedAudio();
+    };
+
+
+    // ==========================================================
     // Initially hide stems
     // ==========================================================
 
@@ -707,6 +721,25 @@ void MainComponent::resized()
     // OUTPUT FOLDER
     // ==========================================================
 
+    // ==========================================================
+    // EXPORT SELECTION
+    // ==========================================================
+
+    exportSelectionButton.setBounds(
+        area.removeFromTop(30)
+            .withSizeKeepingCentre(
+                190,
+                30
+            )
+    );
+
+    area.removeFromTop(4);
+
+
+    // ==========================================================
+    // OUTPUT FOLDER
+    // ==========================================================
+
     openOutputButton.setBounds(
         area.removeFromTop(30)
             .withSizeKeepingCentre(
@@ -885,6 +918,7 @@ void MainComponent::clearSeparatedStems()
         false
     );
 
+    exportSelectionButton.setVisible(false);
 
     vocalsTrack.setVisible(
         false
@@ -1073,6 +1107,8 @@ void MainComponent::showSeparatedStems()
     openOutputButton.setVisible(
         true
     );
+
+    openOutputButton.setVisible(true);
 
 
     // ==========================================================
@@ -1961,4 +1997,317 @@ void MainComponent::expandForTracks()
             550
         );
     }
+}
+
+
+
+// ==============================================================
+// EXPORT SELECTED AUDIO
+// ==============================================================
+
+void MainComponent::exportSelectedAudio()
+{
+    // ==========================================================
+    // Check that stems are loaded
+    // ==========================================================
+
+    if (!vocalsFile.existsAsFile()
+        && !drumsFile.existsAsFile()
+        && !bassFile.existsAsFile()
+        && !instrumentalFile.existsAsFile())
+    {
+        setStatus(
+            "ERROR: No stems loaded"
+        );
+
+        return;
+    }
+
+
+    // ==========================================================
+    // Find selected track
+    // ==========================================================
+
+    StemTrackComponent* selectedTrack = nullptr;
+
+
+    if (vocalsTrack.hasSelection())
+        selectedTrack = &vocalsTrack;
+
+    else if (drumsTrack.hasSelection())
+        selectedTrack = &drumsTrack;
+
+    else if (bassTrack.hasSelection())
+        selectedTrack = &bassTrack;
+
+    else if (instrumentalTrack.hasSelection())
+        selectedTrack = &instrumentalTrack;
+
+
+    // ==========================================================
+    // Require selection
+    // ==========================================================
+
+    if (selectedTrack == nullptr)
+    {
+        setStatus(
+            "Select a region on a stem first"
+        );
+
+        return;
+    }
+
+
+    const double startTime =
+        selectedTrack->getSelectionStart();
+
+    const double endTime =
+        selectedTrack->getSelectionEnd();
+
+
+    if (endTime <= startTime)
+    {
+        setStatus(
+            "ERROR: Invalid selection"
+        );
+
+        return;
+    }
+
+
+    const juce::File sourceFile =
+        selectedTrack->getAudioFile();
+
+
+    if (!sourceFile.existsAsFile())
+    {
+        setStatus(
+            "ERROR: Source audio not found"
+        );
+
+        return;
+    }
+
+
+    // ==========================================================
+    // File chooser
+    // ==========================================================
+
+    auto chooser =
+        std::make_shared<juce::FileChooser>(
+            "Export selected audio...",
+            juce::File{},
+            "*.wav"
+        );
+
+
+    chooser->launchAsync(
+        juce::FileBrowserComponent::saveMode
+        |
+        juce::FileBrowserComponent::canSelectFiles
+        |
+        juce::FileBrowserComponent::warnAboutOverwriting,
+
+        [this, chooser, sourceFile, startTime, endTime]
+        (const juce::FileChooser& fc)
+        {
+            const auto destination =
+                fc.getResult();
+
+
+            if (!destination.exists())
+                return;
+
+
+            // ==================================================
+            // Audio reader
+            // ==================================================
+
+            auto reader =
+                formatManager.createReaderFor(
+                    sourceFile
+                );
+
+
+            if (reader == nullptr)
+            {
+                setStatus(
+                    "ERROR: Could not read source audio"
+                );
+
+                return;
+            }
+
+
+            // ==================================================
+            // Calculate sample range
+            // ==================================================
+
+            const juce::int64 startSample =
+                static_cast<juce::int64>(
+                    startTime * reader->sampleRate
+                );
+
+
+            const juce::int64 endSample =
+                static_cast<juce::int64>(
+                    endTime * reader->sampleRate
+                );
+
+
+            const juce::int64 numSamples =
+                endSample - startSample;
+
+
+            if (numSamples <= 0)
+            {
+                delete reader;
+
+                setStatus(
+                    "ERROR: Empty selection"
+                );
+
+                return;
+            }
+
+
+            // ==================================================
+            // Create WAV writer
+            // ==================================================
+
+            destination.deleteFile();
+
+
+            std::unique_ptr<
+                juce::FileOutputStream
+            > outputStream(
+                destination.createOutputStream()
+            );
+
+
+            if (outputStream == nullptr)
+            {
+                delete reader;
+
+                setStatus(
+                    "ERROR: Could not create output file"
+                );
+
+                return;
+            }
+
+
+            juce::WavAudioFormat wavFormat;
+
+
+            std::unique_ptr<
+                juce::AudioFormatWriter
+            > writer(
+                wavFormat.createWriterFor(
+                    outputStream.get(),
+                    reader->sampleRate,
+                    reader->numChannels,
+                    24,
+                    {},
+                    0
+                )
+            );
+
+
+            if (writer == nullptr)
+            {
+                delete reader;
+
+                setStatus(
+                    "ERROR: Could not create WAV writer"
+                );
+
+                return;
+            }
+
+
+            // ==================================================
+            // Writer owns the stream now
+            // ==================================================
+
+            outputStream.release();
+
+
+            // ==================================================
+            // Render selected region
+            // ==================================================
+
+            const int blockSize =
+                8192;
+
+
+            juce::AudioBuffer<float> buffer(
+                static_cast<int>(
+                    reader->numChannels
+                ),
+                blockSize
+            );
+
+
+            juce::int64 samplesRemaining =
+                numSamples;
+
+
+            juce::int64 currentSample =
+                startSample;
+
+
+            while (samplesRemaining > 0)
+            {
+                const int samplesThisBlock =
+                    static_cast<int>(
+                        juce::jmin(
+                            samplesRemaining,
+                            static_cast<juce::int64>(
+                                blockSize
+                            )
+                        )
+                    );
+
+
+                buffer.clear();
+
+
+                if (!reader->read(
+                        &buffer,
+                        0,
+                        samplesThisBlock,
+                        currentSample,
+                        true,
+                        true))
+                {
+                    break;
+                }
+
+
+                writer->writeFromAudioSampleBuffer(
+                    buffer,
+                    0,
+                    samplesThisBlock
+                );
+
+
+                currentSample +=
+                    samplesThisBlock;
+
+
+                samplesRemaining -=
+                    samplesThisBlock;
+            }
+
+
+            delete reader;
+
+
+            setStatus(
+                "Exported: "
+                + destination.getFileName()
+            );
+        }
+    );
 }
