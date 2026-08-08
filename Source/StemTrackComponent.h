@@ -49,6 +49,7 @@ public:
     );
 
     double getSelectionStart() const;
+
     double getSelectionEnd() const;
 
     bool hasSelection() const;
@@ -122,7 +123,6 @@ public:
     // Selection
     // ==========================================================
 
-
     double getSelectionLength() const
     {
         return selectionEnd - selectionStart;
@@ -172,12 +172,10 @@ private:
 
     juce::AudioFormatManager formatManager;
 
-
     juce::AudioThumbnailCache thumbnailCache
     {
         5
     };
-
 
     juce::AudioThumbnail thumbnail
     {
@@ -185,7 +183,6 @@ private:
         formatManager,
         thumbnailCache
     };
-
 
     juce::File audioFile;
 
@@ -211,6 +208,13 @@ private:
 
 
     // ==========================================================
+    // External Drag
+    // ==========================================================
+
+    bool externalDragStarted = false;
+
+
+    // ==========================================================
     // Track State
     // ==========================================================
 
@@ -228,7 +232,6 @@ private:
     static constexpr juce::uint32 accentColour =
         0xffba430d;
 
-
     static constexpr juce::uint32 playheadColour =
         0xffba430d;
 
@@ -239,8 +242,14 @@ private:
 
     void updateButtonStates();
 
-
     juce::Rectangle<int> getWaveformArea() const;
+
+
+    // ==========================================================
+    // External File Drag
+    // ==========================================================
+
+    bool startExternalFileDrag();
 
 
     // ==========================================================
@@ -251,11 +260,9 @@ private:
         const juce::MouseEvent& event
     ) override;
 
-
     void mouseDrag(
         const juce::MouseEvent& event
     ) override;
-
 
     void mouseUp(
         const juce::MouseEvent& event

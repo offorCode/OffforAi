@@ -1,6 +1,5 @@
 #include "StemTrackComponent.h"
 
-
 // ==========================================================
 // Constructor
 // ==========================================================
@@ -429,7 +428,6 @@ void StemTrackComponent::resized()
 
     controls.removeFromTop(2);
 
-
     volumeSlider.setBounds(
         controls.removeFromTop(24)
     );
@@ -468,12 +466,18 @@ void StemTrackComponent::mouseDown(
 
 
     // ==========================================================
+    // Reset external drag state
+    // ==========================================================
+
+    externalDragStarted = false;
+
+
+    // ==========================================================
     // Start selection
     // ==========================================================
 
     selectionMouseStartX =
         event.getPosition().x;
-
 
     selecting = true;
 
@@ -540,6 +544,27 @@ void StemTrackComponent::mouseDrag(
 
     if (totalLength <= 0.0)
         return;
+
+
+    // ==========================================================
+    // Start external DAW drag
+    //
+    // This must happen while the mouse is being dragged.
+    // ==========================================================
+
+    if (!externalDragStarted
+    && audioFile.existsAsFile()
+    && event.getDistanceFromDragStart() >= 8)
+    {
+        if (startExternalFileDrag())
+        {
+            externalDragStarted = true;
+
+            selecting = false;
+
+            return;
+        }
+    }
 
 
     // ==========================================================
@@ -640,8 +665,17 @@ void StemTrackComponent::mouseDrag(
 // ==========================================================
 
 void StemTrackComponent::mouseUp(
-    const juce::MouseEvent&)
+    const juce::MouseEvent&
+)
 {
+    if (externalDragStarted)
+    {
+        externalDragStarted = false;
+
+        return;
+    }
+
+
     if (!selecting)
         return;
 
@@ -660,6 +694,7 @@ void StemTrackComponent::mouseUp(
 
 
         selectionStart = 0.0;
+
         selectionEnd = 0.0;
 
 
@@ -689,6 +724,46 @@ void StemTrackComponent::mouseUp(
 
 
 // ==========================================================
+// External File Drag
+// ==========================================================
+
+bool StemTrackComponent::startExternalFileDrag()
+{
+    if (!audioFile.existsAsFile())
+        return false;
+
+
+    if (audioFile.getFullPathName().isEmpty())
+        return false;
+
+
+    juce::StringArray files;
+
+    files.add(
+        audioFile.getFullPathName()
+    );
+
+
+    // ==========================================================
+    // Native OS drag
+    //
+    // This allows dragging the WAV directly into another
+    // application such as FL Studio, REAPER, Ableton, etc.
+    // ==========================================================
+
+    return juce::DragAndDropContainer::performExternalDragDropOfFiles(
+        files,
+        false,
+        this,
+        [this]
+        {
+            externalDragStarted = false;
+        }
+    );
+}
+
+
+// ==========================================================
 // Clear Selection
 // ==========================================================
 
@@ -699,6 +774,8 @@ void StemTrackComponent::clearSelection()
     selectionEnd = 0.0;
 
     selecting = false;
+
+    externalDragStarted = false;
 
     repaint();
 
@@ -732,15 +809,15 @@ void StemTrackComponent::setAudioFile(
 {
     audioFile = file;
 
-
     playheadPosition = 0.0;
-
 
     selectionStart = 0.0;
 
     selectionEnd = 0.0;
 
     selecting = false;
+
+    externalDragStarted = false;
 
 
     thumbnail.clear();
@@ -784,20 +861,19 @@ void StemTrackComponent::clearAudio()
     audioFile =
         juce::File();
 
-
     playheadPosition =
         0.0;
-
 
     selectionStart =
         0.0;
 
-
     selectionEnd =
         0.0;
 
-
     selecting =
+        false;
+
+    externalDragStarted =
         false;
 
 
