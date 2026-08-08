@@ -61,9 +61,21 @@ public:
                 true
             );
 
+            setResizable(
+                true,
+                true
+            );
+
+            setResizeLimits(
+                600,
+                280,
+                1000,
+                900
+            );
+
             centreWithSize(
                 700,
-                450
+                300
             );
 
             setVisible(true);

@@ -17,6 +17,9 @@ target_sources(OfforStemSplitter
     PRIVATE
         Source/Main.cpp
         Source/MainComponent.cpp
+
+        Source/StemTrackComponent.cpp
+        Source/StemTrackComponent.h
 )
 
 target_compile_definitions(OfforStemSplitter
