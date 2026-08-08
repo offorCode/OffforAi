@@ -223,14 +223,11 @@ void StemTrackComponent::paint(
             const double totalLength =
                 thumbnail.getTotalLength();
 
-
             const double startRatio =
                 selectionStart / totalLength;
 
-
             const double endRatio =
                 selectionEnd / totalLength;
-
 
             const int startX =
                 waveformArea.getX()
@@ -239,7 +236,6 @@ void StemTrackComponent::paint(
                     * waveformArea.getWidth()
                 );
 
-
             const int endX =
                 waveformArea.getX()
                 + static_cast<int>(
@@ -247,16 +243,18 @@ void StemTrackComponent::paint(
                     * waveformArea.getWidth()
                 );
 
-
             auto selectionArea =
                 waveformArea
                     .withLeft(startX)
                     .withRight(endX);
 
 
+            // --------------------------------------------------
             // Selection background
+            // --------------------------------------------------
+
             g.setColour(
-                juce::Colour(0x55ba430d)
+                juce::Colour(0x66ba430d)
             );
 
             g.fillRect(
@@ -264,7 +262,10 @@ void StemTrackComponent::paint(
             );
 
 
-            // Selection borders
+            // --------------------------------------------------
+            // Selection border
+            // --------------------------------------------------
+
             g.setColour(
                 juce::Colour(accentColour)
             );
@@ -287,6 +288,65 @@ void StemTrackComponent::paint(
                 static_cast<float>(
                     waveformArea.getBottom()
                 )
+            );
+
+
+            // --------------------------------------------------
+            // Selection handles
+            // --------------------------------------------------
+
+            g.fillRect(
+                startX - 2,
+                waveformArea.getY(),
+                4,
+                waveformArea.getHeight()
+            );
+
+            g.fillRect(
+                endX - 2,
+                waveformArea.getY(),
+                4,
+                waveformArea.getHeight()
+            );
+
+
+            // --------------------------------------------------
+            // Selection duration
+            // --------------------------------------------------
+
+            const double length =
+                selectionEnd - selectionStart;
+
+            g.setColour(
+                juce::Colours::white
+            );
+
+            g.setFont(
+                juce::Font(11.0f)
+            );
+
+            g.drawText(
+                juce::String(
+                    selectionStart,
+                    2
+                )
+                + "s - "
+                + juce::String(
+                    selectionEnd,
+                    2
+                )
+                + "s  ("
+                + juce::String(
+                    length,
+                    2
+                )
+                + "s)",
+
+                selectionArea.reduced(4),
+
+                juce::Justification::centredTop,
+
+                false
             );
         }
     }
@@ -335,10 +395,8 @@ void StemTrackComponent::paint(
         const double totalLength =
             thumbnail.getTotalLength();
 
-
         double normalizedPosition =
             playheadPosition / totalLength;
-
 
         normalizedPosition =
             juce::jlimit(
@@ -347,17 +405,14 @@ void StemTrackComponent::paint(
                 normalizedPosition
             );
 
-
         const auto playheadX =
             waveformArea.getX()
             + normalizedPosition
               * waveformArea.getWidth();
 
-
         g.setColour(
             juce::Colour(playheadColour)
         );
-
 
         g.drawVerticalLine(
             static_cast<int>(playheadX),
@@ -407,13 +462,11 @@ void StemTrackComponent::resized()
     auto buttonArea =
         controls.removeFromTop(28);
 
-
     muteButton.setBounds(
         buttonArea
             .removeFromLeft(48)
             .reduced(2)
     );
-
 
     soloButton.setBounds(
         buttonArea
@@ -446,10 +499,6 @@ void StemTrackComponent::mouseDown(
         getWaveformArea();
 
 
-    // ==========================================================
-    // Only interact inside waveform
-    // ==========================================================
-
     if (!waveformArea.contains(
             event.getPosition()))
     {
@@ -465,26 +514,55 @@ void StemTrackComponent::mouseDown(
         return;
 
 
-    // ==========================================================
-    // Reset external drag state
-    // ==========================================================
-
     externalDragStarted = false;
 
 
     // ==========================================================
-    // Start selection
+    // If we already have a selection and click INSIDE it,
+    // prepare to drag the selected region to the DAW.
     // ==========================================================
+
+    if (hasSelection())
+    {
+        const double normalizedPosition =
+            juce::jlimit(
+                0.0,
+                1.0,
+                static_cast<double>(
+                    event.position.x
+                    - waveformArea.getX()
+                )
+                / static_cast<double>(
+                    waveformArea.getWidth()
+                )
+            );
+
+        const double clickTime =
+            normalizedPosition
+            * totalLength;
+
+
+        if (clickTime >= selectionStart
+            && clickTime <= selectionEnd)
+        {
+            selecting = false;
+            selectionMouseStartX =
+                event.getPosition().x;
+
+            return;
+        }
+    }
+
+
+    // ==========================================================
+    // Otherwise begin a NEW selection.
+    // ==========================================================
+
+    selecting = true;
 
     selectionMouseStartX =
         event.getPosition().x;
 
-    selecting = true;
-
-
-    // ==========================================================
-    // Calculate start position
-    // ==========================================================
 
     const double normalizedPosition =
         juce::jlimit(
@@ -504,14 +582,9 @@ void StemTrackComponent::mouseDown(
         normalizedPosition
         * totalLength;
 
-
     selectionEnd =
         selectionStart;
 
-
-    // ==========================================================
-    // Move playhead immediately
-    // ==========================================================
 
     setPlayheadPosition(
         selectionStart
@@ -530,10 +603,6 @@ void StemTrackComponent::mouseDrag(
     const juce::MouseEvent& event
 )
 {
-    if (!selecting)
-        return;
-
-
     auto waveformArea =
         getWaveformArea();
 
@@ -547,20 +616,22 @@ void StemTrackComponent::mouseDrag(
 
 
     // ==========================================================
-    // Start external DAW drag
+    // EXISTING SELECTION
     //
-    // This must happen while the mouse is being dragged.
+    // If the user clicks inside an existing selection and drags,
+    // export that selected region and start the DAW drag.
     // ==========================================================
 
-    if (!externalDragStarted
-    && audioFile.existsAsFile()
-    && event.getDistanceFromDragStart() >= 8)
+    if (!selecting
+        && hasSelection()
+        && !externalDragStarted)
     {
-        if (startExternalFileDrag())
+        if (event.getDistanceFromDragStart() >= 8)
         {
-            externalDragStarted = true;
-
-            selecting = false;
+            if (startExternalFileDrag())
+            {
+                externalDragStarted = true;
+            }
 
             return;
         }
@@ -568,8 +639,12 @@ void StemTrackComponent::mouseDrag(
 
 
     // ==========================================================
-    // Clamp mouse position
+    // NEW SELECTION
     // ==========================================================
+
+    if (!selecting)
+        return;
+
 
     const double startX =
         juce::jlimit(
@@ -671,7 +746,6 @@ void StemTrackComponent::mouseUp(
     if (externalDragStarted)
     {
         externalDragStarted = false;
-
         return;
     }
 
@@ -724,6 +798,66 @@ void StemTrackComponent::mouseUp(
 
 
 // ==========================================================
+// Double Click = Select Entire Track
+// ==========================================================
+
+void StemTrackComponent::mouseDoubleClick(
+    const juce::MouseEvent& event
+)
+{
+    auto waveformArea =
+        getWaveformArea();
+
+
+    if (!waveformArea.contains(
+            event.getPosition()))
+    {
+        return;
+    }
+
+
+    const double totalLength =
+        thumbnail.getTotalLength();
+
+
+    if (totalLength <= 0.0)
+        return;
+
+
+    selectEntireTrack();
+}
+
+
+// ==========================================================
+// Select Entire Track
+// ==========================================================
+
+void StemTrackComponent::selectEntireTrack()
+{
+    const double totalLength =
+        thumbnail.getTotalLength();
+
+
+    if (totalLength <= 0.0)
+        return;
+
+
+    selectionStart = 0.0;
+
+    selectionEnd = totalLength;
+
+    selecting = false;
+
+
+    repaint();
+
+
+    if (onSelectionChanged)
+        onSelectionChanged();
+}
+
+
+// ==========================================================
 // External File Drag
 // ==========================================================
 
@@ -737,29 +871,317 @@ bool StemTrackComponent::startExternalFileDrag()
         return false;
 
 
+    // ==========================================================
+    // Determine what to drag
+    //
+    // Selection exists:
+    //     create a temporary WAV containing ONLY selection.
+    //
+    // No selection:
+    //     drag original full WAV.
+    // ==========================================================
+
+    if (hasSelection())
+    {
+        if (!createTemporarySelectionFile())
+            return false;
+    }
+    else
+    {
+        externalDragFile =
+            audioFile;
+    }
+
+
+    if (!externalDragFile.existsAsFile())
+        return false;
+
+
     juce::StringArray files;
 
     files.add(
-        audioFile.getFullPathName()
+        externalDragFile.getFullPathName()
     );
 
 
     // ==========================================================
     // Native OS drag
-    //
-    // This allows dragging the WAV directly into another
-    // application such as FL Studio, REAPER, Ableton, etc.
     // ==========================================================
 
-    return juce::DragAndDropContainer::performExternalDragDropOfFiles(
-        files,
-        false,
-        this,
-        [this]
-        {
-            externalDragStarted = false;
-        }
+    return juce::DragAndDropContainer::
+        performExternalDragDropOfFiles(
+            files,
+            false,
+            this,
+            [this]
+            {
+                externalDragStarted = false;
+            }
+        );
+}
+
+
+// ==========================================================
+// Create Temporary Selection WAV
+// ==========================================================
+
+bool StemTrackComponent::createTemporarySelectionFile()
+{
+    if (!audioFile.existsAsFile())
+        return false;
+
+
+    const double totalLength =
+        thumbnail.getTotalLength();
+
+
+    if (totalLength <= 0.0)
+        return false;
+
+
+    const double start =
+        juce::jlimit(
+            0.0,
+            totalLength,
+            selectionStart
+        );
+
+
+    const double end =
+        juce::jlimit(
+            0.0,
+            totalLength,
+            selectionEnd
+        );
+
+
+    if (end <= start)
+        return false;
+
+
+    // ==========================================================
+    // Create temporary directory
+    // ==========================================================
+
+    auto tempDirectory =
+        juce::File::getSpecialLocation(
+            juce::File::tempDirectory
+        )
+        .getChildFile(
+            "OfforStemSplitter"
+        );
+
+
+    if (!tempDirectory.exists())
+    {
+        if (!tempDirectory.createDirectory())
+            return false;
+    }
+
+
+    // ==========================================================
+    // Create unique filename
+    // ==========================================================
+
+    const auto stemNameSafe =
+        stemName
+            .replace(
+                " ",
+                "_"
+            )
+            .replace(
+                "/",
+                "_"
+            )
+            .replace(
+                "\\",
+                "_"
+            );
+
+
+    const auto timestamp =
+        juce::Time::getCurrentTime()
+            .toMilliseconds();
+
+
+    externalDragFile =
+        tempDirectory.getChildFile(
+            stemNameSafe
+            + "_"
+            + juce::String(timestamp)
+            + ".wav"
+        );
+
+
+    // ==========================================================
+    // Remove existing file
+    // ==========================================================
+
+    externalDragFile.deleteFile();
+
+
+    // ==========================================================
+    // Open source reader
+    // ==========================================================
+
+    std::unique_ptr<juce::AudioFormatReader> reader(
+        formatManager.createReaderFor(
+            audioFile
+        )
     );
+
+
+    if (reader == nullptr)
+        return false;
+
+
+    const int64 sourceStartSample =
+        static_cast<int64>(
+            start
+            * reader->sampleRate
+        );
+
+
+    const int64 sourceEndSample =
+        static_cast<int64>(
+            end
+            * reader->sampleRate
+        );
+
+
+    const int64 numberOfSamples =
+        sourceEndSample
+        - sourceStartSample;
+
+
+    if (numberOfSamples <= 0)
+        return false;
+
+
+    // ==========================================================
+    // Create WAV writer
+    // ==========================================================
+
+    std::unique_ptr<juce::FileOutputStream> outputStream(
+        externalDragFile.createOutputStream()
+    );
+
+
+    if (outputStream == nullptr)
+        return false;
+
+
+    juce::WavAudioFormat wavFormat;
+
+
+    std::unique_ptr<juce::AudioFormatWriter> writer(
+        wavFormat.createWriterFor(
+            outputStream.get(),
+            reader->sampleRate,
+            static_cast<unsigned int>(
+                reader->numChannels
+            ),
+            24,
+            {},
+            0
+        )
+    );
+
+
+    if (writer == nullptr)
+        return false;
+
+
+    // ==========================================================
+    // Writer owns the stream now
+    // ==========================================================
+
+    outputStream.release();
+
+
+    // ==========================================================
+    // Render selection
+    // ==========================================================
+
+    constexpr int blockSize = 8192;
+
+
+    juce::AudioBuffer<float> buffer(
+        static_cast<int>(
+            reader->numChannels
+        ),
+        blockSize
+    );
+
+
+    int64 samplesRemaining =
+        numberOfSamples;
+
+
+    int64 currentSample =
+        sourceStartSample;
+
+
+    while (samplesRemaining > 0)
+    {
+        const int numSamplesThisBlock =
+            static_cast<int>(
+                juce::jmin<int64>(
+                    samplesRemaining,
+                    blockSize
+                )
+            );
+
+
+        buffer.clear();
+
+
+        if (!reader->read(
+                &buffer,
+                0,
+                numSamplesThisBlock,
+                currentSample,
+                true,
+                true))
+        {
+            writer.reset();
+            externalDragFile.deleteFile();
+
+            return false;
+        }
+
+
+        writer->writeFromAudioSampleBuffer(
+            buffer,
+            0,
+            numSamplesThisBlock
+        );
+
+
+        currentSample +=
+            numSamplesThisBlock;
+
+        samplesRemaining -=
+            numSamplesThisBlock;
+    }
+
+
+    writer.reset();
+
+
+    // ==========================================================
+    // Verify result
+    // ==========================================================
+
+    if (!externalDragFile.existsAsFile())
+        return false;
+
+
+    if (externalDragFile.getSize() <= 44)
+        return false;
+
+
+    return true;
 }
 
 
@@ -807,17 +1229,26 @@ void StemTrackComponent::setAudioFile(
     const juce::File& file
 )
 {
-    audioFile = file;
+    audioFile =
+        file;
 
-    playheadPosition = 0.0;
+    playheadPosition =
+        0.0;
 
-    selectionStart = 0.0;
+    selectionStart =
+        0.0;
 
-    selectionEnd = 0.0;
+    selectionEnd =
+        0.0;
 
-    selecting = false;
+    selecting =
+        false;
 
-    externalDragStarted = false;
+    externalDragStarted =
+        false;
+
+    externalDragFile =
+        juce::File();
 
 
     thumbnail.clear();
@@ -841,11 +1272,8 @@ void StemTrackComponent::setAudioFile(
     );
 
 
-    // ==========================================================
-    // Reset playhead
-    // ==========================================================
-
-    playheadPosition = 0.0;
+    playheadPosition =
+        0.0;
 
 
     repaint();
@@ -876,6 +1304,9 @@ void StemTrackComponent::clearAudio()
     externalDragStarted =
         false;
 
+    externalDragFile =
+        juce::File();
+
 
     thumbnail.clear();
 
@@ -897,7 +1328,6 @@ void StemTrackComponent::setPlayheadPosition(
             0.0,
             positionInSeconds
         );
-
 
     repaint();
 }

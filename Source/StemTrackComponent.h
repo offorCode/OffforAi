@@ -208,10 +208,12 @@ private:
 
 
     // ==========================================================
-    // External Drag
+    // External DAW Drag
     // ==========================================================
 
     bool externalDragStarted = false;
+
+    juce::File externalDragFile;
 
 
     // ==========================================================
@@ -246,8 +248,12 @@ private:
 
 
     // ==========================================================
-    // External File Drag
+    // Selection Helpers
     // ==========================================================
+
+    void selectEntireTrack();
+
+    bool createTemporarySelectionFile();
 
     bool startExternalFileDrag();
 
@@ -265,6 +271,10 @@ private:
     ) override;
 
     void mouseUp(
+        const juce::MouseEvent& event
+    ) override;
+
+    void mouseDoubleClick(
         const juce::MouseEvent& event
     ) override;
 
