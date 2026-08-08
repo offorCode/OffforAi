@@ -7,6 +7,10 @@ class StemTrackComponent
 {
 public:
 
+    // ==========================================================
+    // Constructor
+    // ==========================================================
+
     explicit StemTrackComponent(
         const juce::String& stemName
     );
@@ -14,10 +18,13 @@ public:
     ~StemTrackComponent() override = default;
 
 
+    // ==========================================================
+    // Component
+    // ==========================================================
+
     void paint(
         juce::Graphics& g
     ) override;
-
 
     void resized() override;
 
@@ -41,12 +48,10 @@ public:
         double positionInSeconds
     );
 
-
     double getPlayheadPosition() const
     {
         return playheadPosition;
     }
-
 
     double getAudioLength() const
     {
@@ -55,41 +60,88 @@ public:
 
 
     // ==========================================================
-    // Track controls
+    // Track Controls
     // ==========================================================
 
     void setVolume(
         float newVolume
     );
 
-
     float getVolume() const
     {
         return volume;
     }
-
 
     bool isMuted() const
     {
         return muted;
     }
 
-
     bool isSoloed() const
     {
         return soloed;
     }
 
+
     // ==========================================================
-    // MainComponent notification
+    // Mixing Callback
+    // ==========================================================
+
+    std::function<void()> onMixingChanged;
+
+
+    // ==========================================================
+    // Track State Callback
     // ==========================================================
 
     std::function<void()> onTrackStateChanged;
 
+
+    // ==========================================================
+    // Selection Callback
+    // ==========================================================
+
+    std::function<void()> onSelectionChanged;
+
+
+    // ==========================================================
+    // Seek Callback
+    // ==========================================================
+
+    std::function<void(double)> onSeek;
+
+
+    // ==========================================================
+    // Selection
+    // ==========================================================
+
+    bool hasSelection() const
+    {
+        return selectionEnd > selectionStart;
+    }
+
+    double getSelectionStart() const
+    {
+        return selectionStart;
+    }
+
+    double getSelectionEnd() const
+    {
+        return selectionEnd;
+    }
+
+    double getSelectionLength() const
+    {
+        return selectionEnd - selectionStart;
+    }
+
+    void clearSelection();
+
+
 private:
 
     // ==========================================================
-    // Track name
+    // Track Name
     // ==========================================================
 
     juce::String stemName;
@@ -115,12 +167,11 @@ private:
 
 
     // ==========================================================
-    // Volume
+    // Volume Slider
     // ==========================================================
 
     juce::Slider volumeSlider;
 
-    juce::Label volumeLabel;
 
     // ==========================================================
     // Waveform
@@ -154,7 +205,20 @@ private:
 
 
     // ==========================================================
-    // State
+    // Selection
+    // ==========================================================
+
+    double selectionStart = 0.0;
+
+    double selectionEnd = 0.0;
+
+    bool selecting = false;
+
+    int selectionMouseStartX = 0;
+
+
+    // ==========================================================
+    // Track State
     // ==========================================================
 
     bool muted = false;
@@ -177,13 +241,32 @@ private:
 
 
     // ==========================================================
-    // Internal functions
+    // Internal Functions
     // ==========================================================
 
     void updateButtonStates();
 
 
     juce::Rectangle<int> getWaveformArea() const;
+
+
+    // ==========================================================
+    // Mouse
+    // ==========================================================
+
+    void mouseDown(
+        const juce::MouseEvent& event
+    ) override;
+
+
+    void mouseDrag(
+        const juce::MouseEvent& event
+    ) override;
+
+
+    void mouseUp(
+        const juce::MouseEvent& event
+    ) override;
 
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(

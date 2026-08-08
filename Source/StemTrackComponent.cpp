@@ -1,5 +1,6 @@
 #include "StemTrackComponent.h"
 
+
 // ==========================================================
 // Constructor
 // ==========================================================
@@ -60,6 +61,9 @@ StemTrackComponent::StemTrackComponent(
 
         if (onTrackStateChanged)
             onTrackStateChanged();
+
+        if (onMixingChanged)
+            onMixingChanged();
     };
 
     addAndMakeVisible(
@@ -84,11 +88,15 @@ StemTrackComponent::StemTrackComponent(
 
         if (onTrackStateChanged)
             onTrackStateChanged();
+
+        if (onMixingChanged)
+            onMixingChanged();
     };
 
     addAndMakeVisible(
         soloButton
     );
+
 
     // ==========================================================
     // Volume Slider
@@ -99,10 +107,10 @@ StemTrackComponent::StemTrackComponent(
     );
 
     volumeSlider.setTextBoxStyle(
-        juce::Slider::TextBoxRight,
+        juce::Slider::NoTextBox,
         false,
-        55,
-        22
+        0,
+        0
     );
 
     volumeSlider.setRange(
@@ -130,6 +138,9 @@ StemTrackComponent::StemTrackComponent(
 
         if (onTrackStateChanged)
             onTrackStateChanged();
+
+        if (onMixingChanged)
+            onMixingChanged();
     };
 
     addAndMakeVisible(
@@ -147,7 +158,7 @@ void StemTrackComponent::paint(
 )
 {
     // ==========================================================
-    // Track background
+    // Track Background
     // ==========================================================
 
     g.fillAll(
@@ -156,13 +167,12 @@ void StemTrackComponent::paint(
 
 
     // ==========================================================
-    // Track border
+    // Track Border
     // ==========================================================
 
     g.setColour(
         juce::Colour(accentColour)
     );
-
 
     g.drawRect(
         getLocalBounds(),
@@ -171,17 +181,15 @@ void StemTrackComponent::paint(
 
 
     // ==========================================================
-    // Waveform area
+    // Waveform Area
     // ==========================================================
 
     auto waveformArea =
         getWaveformArea();
 
-
     g.setColour(
         juce::Colour(0xff181818)
     );
-
 
     g.fillRect(
         waveformArea
@@ -198,7 +206,6 @@ void StemTrackComponent::paint(
             juce::Colour(accentColour)
         );
 
-
         thumbnail.drawChannels(
             g,
             waveformArea,
@@ -206,13 +213,89 @@ void StemTrackComponent::paint(
             thumbnail.getTotalLength(),
             1.0f
         );
+
+
+        // ======================================================
+        // Selection
+        // ======================================================
+
+        if (hasSelection())
+        {
+            const double totalLength =
+                thumbnail.getTotalLength();
+
+
+            const double startRatio =
+                selectionStart / totalLength;
+
+
+            const double endRatio =
+                selectionEnd / totalLength;
+
+
+            const int startX =
+                waveformArea.getX()
+                + static_cast<int>(
+                    startRatio
+                    * waveformArea.getWidth()
+                );
+
+
+            const int endX =
+                waveformArea.getX()
+                + static_cast<int>(
+                    endRatio
+                    * waveformArea.getWidth()
+                );
+
+
+            auto selectionArea =
+                waveformArea
+                    .withLeft(startX)
+                    .withRight(endX);
+
+
+            // Selection background
+            g.setColour(
+                juce::Colour(0x55ba430d)
+            );
+
+            g.fillRect(
+                selectionArea
+            );
+
+
+            // Selection borders
+            g.setColour(
+                juce::Colour(accentColour)
+            );
+
+            g.drawVerticalLine(
+                startX,
+                static_cast<float>(
+                    waveformArea.getY()
+                ),
+                static_cast<float>(
+                    waveformArea.getBottom()
+                )
+            );
+
+            g.drawVerticalLine(
+                endX,
+                static_cast<float>(
+                    waveformArea.getY()
+                ),
+                static_cast<float>(
+                    waveformArea.getBottom()
+                )
+            );
+        }
     }
     else
     {
         g.setColour(
             juce::Colours::grey
         );
-
 
         g.drawText(
             "No audio loaded",
@@ -223,7 +306,7 @@ void StemTrackComponent::paint(
 
 
     // ==========================================================
-    // Center line
+    // Center Line
     // ==========================================================
 
     g.setColour(
@@ -244,19 +327,17 @@ void StemTrackComponent::paint(
     );
 
 
-   
-
     // ==========================================================
     // Playhead
     // ==========================================================
 
     if (thumbnail.getTotalLength() > 0.0)
     {
-        auto totalLength =
+        const double totalLength =
             thumbnail.getTotalLength();
 
 
-        auto normalizedPosition =
+        double normalizedPosition =
             playheadPosition / totalLength;
 
 
@@ -268,7 +349,7 @@ void StemTrackComponent::paint(
             );
 
 
-        auto playheadX =
+        const auto playheadX =
             waveformArea.getX()
             + normalizedPosition
               * waveformArea.getWidth();
@@ -300,7 +381,7 @@ void StemTrackComponent::resized()
 {
     auto area =
         getLocalBounds()
-        .reduced(10);
+            .reduced(6);
 
 
     // ==========================================================
@@ -308,76 +389,359 @@ void StemTrackComponent::resized()
     // ==========================================================
 
     auto controls =
-        area.removeFromLeft(245);
+        area.removeFromLeft(155);
 
 
     // ==========================================================
-    // Track name
+    // Track Name
     // ==========================================================
 
     nameLabel.setBounds(
-        controls.removeFromTop(24)
+        controls.removeFromTop(22)
     );
 
 
     // ==========================================================
-    // M / S buttons
+    // M / S
     // ==========================================================
 
     auto buttonArea =
-        controls.removeFromTop(30);
+        controls.removeFromTop(28);
 
 
     muteButton.setBounds(
         buttonArea
-            .removeFromLeft(45)
+            .removeFromLeft(48)
             .reduced(2)
     );
 
 
     soloButton.setBounds(
         buttonArea
-            .removeFromLeft(45)
+            .removeFromLeft(48)
             .reduced(2)
     );
 
 
     // ==========================================================
-    // Volume slider
+    // Volume
     // ==========================================================
 
+    controls.removeFromTop(2);
+
+
     volumeSlider.setBounds(
-        controls.removeFromTop(28)
-            .reduced(2)
+        controls.removeFromTop(24)
     );
 }
 
 
 // ==========================================================
-// Waveform area
+// Mouse Down
+// ==========================================================
+
+void StemTrackComponent::mouseDown(
+    const juce::MouseEvent& event
+)
+{
+    auto waveformArea =
+        getWaveformArea();
+
+
+    // ==========================================================
+    // Only interact inside waveform
+    // ==========================================================
+
+    if (!waveformArea.contains(
+            event.getPosition()))
+    {
+        return;
+    }
+
+
+    const double totalLength =
+        thumbnail.getTotalLength();
+
+
+    if (totalLength <= 0.0)
+        return;
+
+
+    // ==========================================================
+    // Start selection
+    // ==========================================================
+
+    selectionMouseStartX =
+        event.getPosition().x;
+
+
+    selecting = true;
+
+
+    // ==========================================================
+    // Calculate start position
+    // ==========================================================
+
+    const double normalizedPosition =
+        juce::jlimit(
+            0.0,
+            1.0,
+            static_cast<double>(
+                event.position.x
+                - waveformArea.getX()
+            )
+            / static_cast<double>(
+                waveformArea.getWidth()
+            )
+        );
+
+
+    selectionStart =
+        normalizedPosition
+        * totalLength;
+
+
+    selectionEnd =
+        selectionStart;
+
+
+    // ==========================================================
+    // Move playhead immediately
+    // ==========================================================
+
+    setPlayheadPosition(
+        selectionStart
+    );
+
+
+    repaint();
+}
+
+
+// ==========================================================
+// Mouse Drag
+// ==========================================================
+
+void StemTrackComponent::mouseDrag(
+    const juce::MouseEvent& event
+)
+{
+    if (!selecting)
+        return;
+
+
+    auto waveformArea =
+        getWaveformArea();
+
+
+    const double totalLength =
+        thumbnail.getTotalLength();
+
+
+    if (totalLength <= 0.0)
+        return;
+
+
+    // ==========================================================
+    // Clamp mouse position
+    // ==========================================================
+
+    const double startX =
+        juce::jlimit(
+            static_cast<double>(
+                waveformArea.getX()
+            ),
+            static_cast<double>(
+                waveformArea.getRight()
+            ),
+            static_cast<double>(
+                selectionMouseStartX
+            )
+        );
+
+
+    const double currentX =
+        juce::jlimit(
+            static_cast<double>(
+                waveformArea.getX()
+            ),
+            static_cast<double>(
+                waveformArea.getRight()
+            ),
+            static_cast<double>(
+                event.position.x
+            )
+        );
+
+
+    // ==========================================================
+    // Convert X -> time
+    // ==========================================================
+
+    const double startRatio =
+        (startX - waveformArea.getX())
+        / static_cast<double>(
+            waveformArea.getWidth()
+        );
+
+
+    const double currentRatio =
+        (currentX - waveformArea.getX())
+        / static_cast<double>(
+            waveformArea.getWidth()
+        );
+
+
+    const double startTime =
+        startRatio * totalLength;
+
+
+    const double currentTime =
+        currentRatio * totalLength;
+
+
+    // ==========================================================
+    // Selection direction
+    // ==========================================================
+
+    if (currentTime >= startTime)
+    {
+        selectionStart =
+            startTime;
+
+        selectionEnd =
+            currentTime;
+    }
+    else
+    {
+        selectionStart =
+            currentTime;
+
+        selectionEnd =
+            startTime;
+    }
+
+
+    // ==========================================================
+    // Move playhead
+    // ==========================================================
+
+    setPlayheadPosition(
+        currentTime
+    );
+
+
+    repaint();
+}
+
+
+// ==========================================================
+// Mouse Up
+// ==========================================================
+
+void StemTrackComponent::mouseUp(
+    const juce::MouseEvent&)
+{
+    if (!selecting)
+        return;
+
+
+    selecting = false;
+
+
+    // ==========================================================
+    // Very small selection = normal seek
+    // ==========================================================
+
+    if (selectionEnd - selectionStart < 0.01)
+    {
+        const double seekPosition =
+            selectionStart;
+
+
+        selectionStart = 0.0;
+        selectionEnd = 0.0;
+
+
+        setPlayheadPosition(
+            seekPosition
+        );
+
+
+        if (onSeek)
+            onSeek(
+                seekPosition
+            );
+    }
+    else
+    {
+        // ======================================================
+        // Real selection
+        // ======================================================
+
+        if (onSelectionChanged)
+            onSelectionChanged();
+    }
+
+
+    repaint();
+}
+
+
+// ==========================================================
+// Clear Selection
+// ==========================================================
+
+void StemTrackComponent::clearSelection()
+{
+    selectionStart = 0.0;
+
+    selectionEnd = 0.0;
+
+    selecting = false;
+
+    repaint();
+
+
+    if (onSelectionChanged)
+        onSelectionChanged();
+}
+
+
+// ==========================================================
+// Waveform Area
 // ==========================================================
 
 juce::Rectangle<int>
 StemTrackComponent::getWaveformArea() const
 {
     return getLocalBounds()
-        .reduced(10)
-        .withTrimmedLeft(255)
-        .withTrimmedRight(10);
+        .reduced(6)
+        .withTrimmedLeft(165)
+        .withTrimmedRight(6);
 }
 
 
-    // ==========================================================
-    // Set audio file
-    // ==========================================================
+// ==========================================================
+// Set Audio File
+// ==========================================================
 
-    void StemTrackComponent::setAudioFile(
+void StemTrackComponent::setAudioFile(
     const juce::File& file
 )
 {
     audioFile = file;
 
+
     playheadPosition = 0.0;
+
+
+    selectionStart = 0.0;
+
+    selectionEnd = 0.0;
+
+    selecting = false;
+
 
     thumbnail.clear();
 
@@ -412,16 +776,33 @@ StemTrackComponent::getWaveformArea() const
 
 
 // ==========================================================
-// Clear audio
+// Clear Audio
 // ==========================================================
 
 void StemTrackComponent::clearAudio()
 {
-    audioFile = juce::File();
+    audioFile =
+        juce::File();
 
-    playheadPosition = 0.0;
+
+    playheadPosition =
+        0.0;
+
+
+    selectionStart =
+        0.0;
+
+
+    selectionEnd =
+        0.0;
+
+
+    selecting =
+        false;
+
 
     thumbnail.clear();
+
 
     repaint();
 }
@@ -441,6 +822,7 @@ void StemTrackComponent::setPlayheadPosition(
             positionInSeconds
         );
 
+
     repaint();
 }
 
@@ -448,7 +830,6 @@ void StemTrackComponent::setPlayheadPosition(
 // ==========================================================
 // Volume
 // ==========================================================
-
 
 void StemTrackComponent::setVolume(
     float newVolume
@@ -466,11 +847,15 @@ void StemTrackComponent::setVolume(
         volume,
         juce::dontSendNotification
     );
+
+
+    if (onMixingChanged)
+        onMixingChanged();
 }
 
 
 // ==========================================================
-// Button states
+// Button States
 // ==========================================================
 
 void StemTrackComponent::updateButtonStates()

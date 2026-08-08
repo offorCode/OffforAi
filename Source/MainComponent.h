@@ -15,10 +15,9 @@ public:
     void paint(juce::Graphics&) override;
     void resized() override;
 
-    void expandForTracks();
-
-
 private:
+
+    void expandForTracks();
 
     // ==========================================================
     // Transport

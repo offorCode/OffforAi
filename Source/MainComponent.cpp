@@ -1,7 +1,6 @@
 #include "MainComponent.h"
 #include "AppConfig.h"
 
-
 // ==============================================================
 // CONSTRUCTOR
 // ==============================================================
@@ -26,7 +25,6 @@ MainComponent::MainComponent()
             nullptr,
             true
         );
-
 
     if (error.isNotEmpty())
     {
@@ -65,16 +63,13 @@ MainComponent::MainComponent()
         juce::dontSendNotification
     );
 
-
     titleLabel.setFont(
         juce::Font(28.0f)
     );
 
-
     titleLabel.setJustificationType(
         juce::Justification::centred
     );
-
 
     addAndMakeVisible(
         titleLabel
@@ -88,7 +83,6 @@ MainComponent::MainComponent()
     addAndMakeVisible(
         selectButton
     );
-
 
     selectButton.onClick = [this]
     {
@@ -104,7 +98,6 @@ MainComponent::MainComponent()
         separateButton
     );
 
-
     separateButton.onClick = [this]
     {
         runSeparator();
@@ -119,11 +112,9 @@ MainComponent::MainComponent()
         playButton
     );
 
-
     addAndMakeVisible(
         pauseButton
     );
-
 
     addAndMakeVisible(
         stopButton
@@ -157,11 +148,9 @@ MainComponent::MainComponent()
         juce::dontSendNotification
     );
 
-
     fileLabel.setJustificationType(
         juce::Justification::centred
     );
-
 
     addAndMakeVisible(
         fileLabel
@@ -177,11 +166,9 @@ MainComponent::MainComponent()
         juce::dontSendNotification
     );
 
-
     statusLabel.setJustificationType(
         juce::Justification::centred
     );
-
 
     addAndMakeVisible(
         statusLabel
@@ -196,16 +183,13 @@ MainComponent::MainComponent()
         vocalsTrack
     );
 
-
     addAndMakeVisible(
         drumsTrack
     );
 
-
     addAndMakeVisible(
         bassTrack
     );
-
 
     addAndMakeVisible(
         instrumentalTrack
@@ -213,35 +197,184 @@ MainComponent::MainComponent()
 
 
     // ==========================================================
-    // Track control callbacks
+    // Waveform seeking
+    // ==========================================================
+
+    auto setupSeek =
+        [this](StemTrackComponent& track)
+    {
+        track.onSeek =
+            [this](double position)
+            {
+                playbackPosition =
+                    juce::jlimit(
+                        0.0,
+                        playbackLength,
+                        position
+                    );
+
+
+                // ==================================================
+                // Move all audio transports
+                // ==================================================
+
+                if (vocalsTransport)
+                    vocalsTransport->setPosition(
+                        playbackPosition
+                    );
+
+                if (drumsTransport)
+                    drumsTransport->setPosition(
+                        playbackPosition
+                    );
+
+                if (bassTransport)
+                    bassTransport->setPosition(
+                        playbackPosition
+                    );
+
+                if (instrumentalTransport)
+                    instrumentalTransport->setPosition(
+                        playbackPosition
+                    );
+
+
+                // ==================================================
+                // Synchronize visual playheads
+                // ==================================================
+
+                vocalsTrack.setPlayheadPosition(
+                    playbackPosition
+                );
+
+                drumsTrack.setPlayheadPosition(
+                    playbackPosition
+                );
+
+                bassTrack.setPlayheadPosition(
+                    playbackPosition
+                );
+
+                instrumentalTrack.setPlayheadPosition(
+                    playbackPosition
+                );
+
+
+                // ==================================================
+                // Restart playback if already playing
+                // ==================================================
+
+                if (isPlaying)
+                {
+                    if (vocalsTransport)
+                        vocalsTransport->start();
+
+                    if (drumsTransport)
+                        drumsTransport->start();
+
+                    if (bassTransport)
+                        bassTransport->start();
+
+                    if (instrumentalTransport)
+                        instrumentalTransport->start();
+                }
+
+
+                // ==================================================
+                // Status
+                // ==================================================
+
+                setStatus(
+                    "Status: " +
+                    juce::String(
+                        playbackPosition,
+                        2
+                    ) +
+                    " seconds"
+                );
+            };
+    };
+
+
+    setupSeek(
+        vocalsTrack
+    );
+
+    setupSeek(
+        drumsTrack
+    );
+
+    setupSeek(
+        bassTrack
+    );
+
+    setupSeek(
+        instrumentalTrack
+    );
+
+
+    // ==========================================================
+    // Track mixing callbacks
+    // ==========================================================
+
+    vocalsTrack.onMixingChanged =
+        [this]
+        {
+            updateTrackMixing();
+        };
+
+
+    drumsTrack.onMixingChanged =
+        [this]
+        {
+            updateTrackMixing();
+        };
+
+
+    bassTrack.onMixingChanged =
+        [this]
+        {
+            updateTrackMixing();
+        };
+
+
+    instrumentalTrack.onMixingChanged =
+        [this]
+        {
+            updateTrackMixing();
+        };
+
+
+    // ==========================================================
+    // Track state callbacks
     // ==========================================================
 
     vocalsTrack.onTrackStateChanged =
         [this]
-    {
-        updateTrackMixing();
-    };
+        {
+            updateTrackMixing();
+        };
 
 
     drumsTrack.onTrackStateChanged =
         [this]
-    {
-        updateTrackMixing();
-    };
+        {
+            updateTrackMixing();
+        };
 
 
     bassTrack.onTrackStateChanged =
         [this]
-    {
-        updateTrackMixing();
-    };
+        {
+            updateTrackMixing();
+        };
 
 
     instrumentalTrack.onTrackStateChanged =
         [this]
-    {
-        updateTrackMixing();
-    };
+        {
+            updateTrackMixing();
+        };
 
 
     // ==========================================================
@@ -257,7 +390,6 @@ MainComponent::MainComponent()
             juce::dontSendNotification
         );
 
-
         label.setJustificationType(
             juce::Justification::centredLeft
         );
@@ -269,18 +401,15 @@ MainComponent::MainComponent()
         "01  Vocals"
     );
 
-
     setupStemLabel(
         drumsLabel,
         "02  Drums"
     );
 
-
     setupStemLabel(
         bassLabel,
         "03  Bass"
     );
-
 
     setupStemLabel(
         instrumentalLabel,
@@ -296,7 +425,6 @@ MainComponent::MainComponent()
         openOutputButton
     );
 
-
     openOutputButton.onClick = [this]
     {
         openOutputFolder();
@@ -304,7 +432,7 @@ MainComponent::MainComponent()
 
 
     // ==========================================================
-    // Initially hide output labels
+    // Initially hide stems
     // ==========================================================
 
     clearSeparatedStems();
@@ -319,15 +447,19 @@ MainComponent::~MainComponent()
 {
     playbackTimer.stopTimer();
 
+
     unloadStemAudio();
+
 
     audioSourcePlayer.setSource(
         nullptr
     );
 
+
     audioDeviceManager.removeAudioCallback(
         &audioSourcePlayer
     );
+
 
     separatorProcess.reset();
 }
@@ -379,11 +511,13 @@ void MainComponent::resized()
                 32
             );
 
+
     playButton.setBounds(
         transportArea
             .removeFromLeft(80)
             .reduced(2)
     );
+
 
     pauseButton.setBounds(
         transportArea
@@ -391,11 +525,13 @@ void MainComponent::resized()
             .reduced(2)
     );
 
+
     stopButton.setBounds(
         transportArea
             .removeFromLeft(80)
             .reduced(2)
     );
+
 
     area.removeFromTop(4);
 
@@ -412,6 +548,7 @@ void MainComponent::resized()
             )
     );
 
+
     area.removeFromTop(4);
 
 
@@ -422,6 +559,7 @@ void MainComponent::resized()
     fileLabel.setBounds(
         area.removeFromTop(20)
     );
+
 
     area.removeFromTop(4);
 
@@ -438,6 +576,7 @@ void MainComponent::resized()
             )
     );
 
+
     area.removeFromTop(4);
 
 
@@ -449,6 +588,7 @@ void MainComponent::resized()
         area.removeFromTop(18)
     );
 
+
     area.removeFromTop(5);
 
 
@@ -459,16 +599,20 @@ void MainComponent::resized()
     const int trackHeight = 58;
 
 
-    // ----------------------------------------------------------
+    // ==========================================================
     // VOCALS
-    // ----------------------------------------------------------
+    // ==========================================================
 
     auto vocalsArea =
-        area.removeFromTop(trackHeight);
+        area.removeFromTop(
+            trackHeight
+        );
+
 
     vocalsTrack.setBounds(
         vocalsArea
     );
+
 
     vocalsLabel.setBounds(
         vocalsArea
@@ -477,19 +621,24 @@ void MainComponent::resized()
             .withHeight(18)
     );
 
+
     area.removeFromTop(4);
 
 
-    // ----------------------------------------------------------
+    // ==========================================================
     // DRUMS
-    // ----------------------------------------------------------
+    // ==========================================================
 
     auto drumsArea =
-        area.removeFromTop(trackHeight);
+        area.removeFromTop(
+            trackHeight
+        );
+
 
     drumsTrack.setBounds(
         drumsArea
     );
+
 
     drumsLabel.setBounds(
         drumsArea
@@ -498,19 +647,24 @@ void MainComponent::resized()
             .withHeight(18)
     );
 
+
     area.removeFromTop(4);
 
 
-    // ----------------------------------------------------------
+    // ==========================================================
     // BASS
-    // ----------------------------------------------------------
+    // ==========================================================
 
     auto bassArea =
-        area.removeFromTop(trackHeight);
+        area.removeFromTop(
+            trackHeight
+        );
+
 
     bassTrack.setBounds(
         bassArea
     );
+
 
     bassLabel.setBounds(
         bassArea
@@ -519,19 +673,24 @@ void MainComponent::resized()
             .withHeight(18)
     );
 
+
     area.removeFromTop(4);
 
 
-    // ----------------------------------------------------------
+    // ==========================================================
     // INSTRUMENTAL
-    // ----------------------------------------------------------
+    // ==========================================================
 
     auto instrumentalArea =
-        area.removeFromTop(trackHeight);
+        area.removeFromTop(
+            trackHeight
+        );
+
 
     instrumentalTrack.setBounds(
         instrumentalArea
     );
+
 
     instrumentalLabel.setBounds(
         instrumentalArea
@@ -539,6 +698,7 @@ void MainComponent::resized()
             .withTrimmedTop(2)
             .withHeight(18)
     );
+
 
     area.removeFromTop(5);
 
@@ -556,6 +716,7 @@ void MainComponent::resized()
     );
 }
 
+
 // ==============================================================
 // STATUS
 // ==============================================================
@@ -570,12 +731,17 @@ void MainComponent::setStatus(
     );
 }
 
+
 // ==============================================================
 // UPDATE TRACK MIXING
 // ==============================================================
 
 void MainComponent::updateTrackMixing()
 {
+    // ==========================================================
+    // Check Solo State
+    // ==========================================================
+
     const bool vocalsSolo =
         vocalsTrack.isSoloed();
 
@@ -587,6 +753,7 @@ void MainComponent::updateTrackMixing()
 
     const bool instrumentalSolo =
         instrumentalTrack.isSoloed();
+
 
     const bool anySolo =
         vocalsSolo
@@ -606,8 +773,15 @@ void MainComponent::updateTrackMixing()
                 ? vocalsSolo
                 : !vocalsTrack.isMuted();
 
+
+        const float volume =
+            vocalsTrack.getVolume();
+
+
         vocalsTransport->setGain(
-            audible ? vocalsTrack.getVolume() : 0.0f
+            audible
+                ? volume
+                : 0.0f
         );
     }
 
@@ -623,8 +797,15 @@ void MainComponent::updateTrackMixing()
                 ? drumsSolo
                 : !drumsTrack.isMuted();
 
+
+        const float volume =
+            drumsTrack.getVolume();
+
+
         drumsTransport->setGain(
-            audible ? drumsTrack.getVolume() : 0.0f
+            audible
+                ? volume
+                : 0.0f
         );
     }
 
@@ -640,8 +821,15 @@ void MainComponent::updateTrackMixing()
                 ? bassSolo
                 : !bassTrack.isMuted();
 
+
+        const float volume =
+            bassTrack.getVolume();
+
+
         bassTransport->setGain(
-            audible ? bassTrack.getVolume() : 0.0f
+            audible
+                ? volume
+                : 0.0f
         );
     }
 
@@ -657,11 +845,19 @@ void MainComponent::updateTrackMixing()
                 ? instrumentalSolo
                 : !instrumentalTrack.isMuted();
 
+
+        const float volume =
+            instrumentalTrack.getVolume();
+
+
         instrumentalTransport->setGain(
-            audible ? instrumentalTrack.getVolume() : 0.0f
+            audible
+                ? volume
+                : 0.0f
         );
     }
 }
+
 
 // ==============================================================
 // CLEAR STEMS
@@ -669,24 +865,42 @@ void MainComponent::updateTrackMixing()
 
 void MainComponent::clearSeparatedStems()
 {
-    vocalsLabel.setVisible(false);
+    vocalsLabel.setVisible(
+        false
+    );
 
-    drumsLabel.setVisible(false);
+    drumsLabel.setVisible(
+        false
+    );
 
-    bassLabel.setVisible(false);
+    bassLabel.setVisible(
+        false
+    );
 
-    instrumentalLabel.setVisible(false);
+    instrumentalLabel.setVisible(
+        false
+    );
 
-    openOutputButton.setVisible(false);
+    openOutputButton.setVisible(
+        false
+    );
 
 
-    vocalsTrack.setVisible(false);
+    vocalsTrack.setVisible(
+        false
+    );
 
-    drumsTrack.setVisible(false);
+    drumsTrack.setVisible(
+        false
+    );
 
-    bassTrack.setVisible(false);
+    bassTrack.setVisible(
+        false
+    );
 
-    instrumentalTrack.setVisible(false);
+    instrumentalTrack.setVisible(
+        false
+    );
 
 
     unloadStemAudio();
@@ -798,23 +1012,20 @@ void MainComponent::showSeparatedStems()
 
 
     // ==========================================================
-    // Reset playhead
+    // Reset playheads
     // ==========================================================
 
     vocalsTrack.setPlayheadPosition(
         playbackPosition
     );
 
-
     drumsTrack.setPlayheadPosition(
         playbackPosition
     );
 
-
     bassTrack.setPlayheadPosition(
         playbackPosition
     );
-
 
     instrumentalTrack.setPlayheadPosition(
         playbackPosition
@@ -825,29 +1036,47 @@ void MainComponent::showSeparatedStems()
     // Show tracks
     // ==========================================================
 
-    vocalsLabel.setVisible(true);
+    vocalsLabel.setVisible(
+        true
+    );
 
-    drumsLabel.setVisible(true);
+    drumsLabel.setVisible(
+        true
+    );
 
-    bassLabel.setVisible(true);
+    bassLabel.setVisible(
+        true
+    );
 
-    instrumentalLabel.setVisible(true);
-
-
-    vocalsTrack.setVisible(true);
-
-    drumsTrack.setVisible(true);
-
-    bassTrack.setVisible(true);
-
-    instrumentalTrack.setVisible(true);
+    instrumentalLabel.setVisible(
+        true
+    );
 
 
-    openOutputButton.setVisible(true);
+    vocalsTrack.setVisible(
+        true
+    );
+
+    drumsTrack.setVisible(
+        true
+    );
+
+    bassTrack.setVisible(
+        true
+    );
+
+    instrumentalTrack.setVisible(
+        true
+    );
+
+
+    openOutputButton.setVisible(
+        true
+    );
 
 
     // ==========================================================
-    // Expand window for tracks
+    // Expand window
     // ==========================================================
 
     expandForTracks();
@@ -858,6 +1087,13 @@ void MainComponent::showSeparatedStems()
     // ==========================================================
 
     resized();
+
+
+    // ==========================================================
+    // Apply initial mixing
+    // ==========================================================
+
+    updateTrackMixing();
 
 
     // ==========================================================
@@ -914,17 +1150,18 @@ bool MainComponent::loadStemAudio()
         );
 
 
+    // ==========================================================
+    // Validate readers
+    // ==========================================================
+
     if (vocalsReader == nullptr
         || drumsReader == nullptr
         || bassReader == nullptr
         || instrumentalReader == nullptr)
     {
         delete vocalsReader;
-
         delete drumsReader;
-
         delete bassReader;
-
         delete instrumentalReader;
 
         return false;
@@ -1024,7 +1261,7 @@ bool MainComponent::loadStemAudio()
 
 
     // ==========================================================
-    // Add all four stems to mixer
+    // Add stems to mixer
     // ==========================================================
 
     mixerSource.addInputSource(
@@ -1049,6 +1286,13 @@ bool MainComponent::loadStemAudio()
         instrumentalTransport.get(),
         false
     );
+
+
+    // ==========================================================
+    // Apply track mixing
+    // ==========================================================
+
+    updateTrackMixing();
 
 
     return true;
@@ -1096,6 +1340,13 @@ void MainComponent::unloadStemAudio()
     bassReaderSource.reset();
 
     instrumentalReaderSource.reset();
+
+
+    playbackPosition = 0.0;
+
+    playbackLength = 0.0;
+
+    isPlaying = false;
 }
 
 
@@ -1158,6 +1409,25 @@ void MainComponent::selectAudioFile()
 
 
                 clearSeparatedStems();
+
+
+                // ==================================================
+                // Return to compact window
+                // ==================================================
+
+                if (auto* window =
+                        findParentComponentOfClass<
+                            juce::DocumentWindow
+                        >())
+                {
+                    window->setSize(
+                        700,
+                        300
+                    );
+                }
+
+
+                resized();
             }
         }
     );
@@ -1201,7 +1471,7 @@ void MainComponent::runSeparator()
 
 
     // ==========================================================
-    // Python
+    // Python executable
     // ==========================================================
 
     const juce::File pythonExecutable(
@@ -1211,7 +1481,7 @@ void MainComponent::runSeparator()
 
 
     // ==========================================================
-    // separator.py
+    // Separator script
     // ==========================================================
 
     const juce::File separatorScript(
@@ -1314,7 +1584,7 @@ void MainComponent::timerCallback()
 
 
 // ==============================================================
-// CHECK PROCESS
+// CHECK SEPARATOR PROCESS
 // ==============================================================
 
 void MainComponent::checkSeparatorProcess()
@@ -1417,16 +1687,13 @@ void MainComponent::startPlayback()
             0.0
         );
 
-
         drumsTransport->setPosition(
             0.0
         );
 
-
         bassTransport->setPosition(
             0.0
         );
-
 
         instrumentalTransport->setPosition(
             0.0
@@ -1442,20 +1709,24 @@ void MainComponent::startPlayback()
         playbackPosition
     );
 
-
     drumsTransport->setPosition(
         playbackPosition
     );
-
 
     bassTransport->setPosition(
         playbackPosition
     );
 
-
     instrumentalTransport->setPosition(
         playbackPosition
     );
+
+
+    // ==========================================================
+    // Apply mixing
+    // ==========================================================
+
+    updateTrackMixing();
 
 
     // ==========================================================
@@ -1578,16 +1849,13 @@ void MainComponent::stopPlayback()
         0.0
     );
 
-
     drumsTrack.setPlayheadPosition(
         0.0
     );
 
-
     bassTrack.setPlayheadPosition(
         0.0
     );
-
 
     instrumentalTrack.setPlayheadPosition(
         0.0
@@ -1607,7 +1875,8 @@ void MainComponent::stopPlayback()
 void MainComponent::updatePlayback()
 {
     updateTrackMixing();
-    
+
+
     if (!isPlaying)
         return;
 
@@ -1615,6 +1884,10 @@ void MainComponent::updatePlayback()
     playbackPosition +=
         1.0 / 60.0;
 
+
+    // ==========================================================
+    // Playback finished
+    // ==========================================================
 
     if (playbackPosition >= playbackLength)
     {
@@ -1658,16 +1931,13 @@ void MainComponent::updatePlayback()
         playbackPosition
     );
 
-
     drumsTrack.setPlayheadPosition(
         playbackPosition
     );
 
-
     bassTrack.setPlayheadPosition(
         playbackPosition
     );
-
 
     instrumentalTrack.setPlayheadPosition(
         playbackPosition
@@ -1675,9 +1945,16 @@ void MainComponent::updatePlayback()
 }
 
 
+// ==============================================================
+// EXPAND WINDOW FOR TRACKS
+// ==============================================================
+
 void MainComponent::expandForTracks()
 {
-    if (auto* window = findParentComponentOfClass<juce::DocumentWindow>())
+    if (auto* window =
+            findParentComponentOfClass<
+                juce::DocumentWindow
+            >())
     {
         window->setSize(
             700,
