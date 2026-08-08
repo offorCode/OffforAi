@@ -2,21 +2,21 @@
 #include "AppConfig.h"
 
 
-//==============================================================
-// MainComponent
-//==============================================================
+// ==============================================================
+// CONSTRUCTOR
+// ==============================================================
 
 MainComponent::MainComponent()
 {
     setSize(
         700,
-        450
+        600
     );
 
 
-    //==========================================================
-    // Title
-    //==========================================================
+    // ==========================================================
+    // TITLE
+    // ==========================================================
 
     titleLabel.setText(
         OfforStemSplitter::PRODUCT_NAME,
@@ -36,38 +36,9 @@ MainComponent::MainComponent()
     );
 
 
-    //==========================================================
-    // Version
-    //==========================================================
-
-    versionLabel.setText(
-        "v" + juce::String(
-            OfforStemSplitter::VERSION
-        ),
-        juce::dontSendNotification
-    );
-
-    versionLabel.setFont(
-        juce::Font(14.0f)
-    );
-
-    versionLabel.setJustificationType(
-        juce::Justification::centred
-    );
-
-    versionLabel.setColour(
-        juce::Label::textColourId,
-        juce::Colours::grey
-    );
-
-    addAndMakeVisible(
-        versionLabel
-    );
-
-
-    //==========================================================
-    // Select Button
-    //==========================================================
+    // ==========================================================
+    // SELECT BUTTON
+    // ==========================================================
 
     addAndMakeVisible(
         selectButton
@@ -79,9 +50,9 @@ MainComponent::MainComponent()
     };
 
 
-    //==========================================================
-    // Separate Button
-    //==========================================================
+    // ==========================================================
+    // SEPARATE BUTTON
+    // ==========================================================
 
     addAndMakeVisible(
         separateButton
@@ -93,9 +64,9 @@ MainComponent::MainComponent()
     };
 
 
-    //==========================================================
-    // File Label
-    //==========================================================
+    // ==========================================================
+    // FILE LABEL
+    // ==========================================================
 
     fileLabel.setText(
         "No file selected",
@@ -111,9 +82,9 @@ MainComponent::MainComponent()
     );
 
 
-    //==========================================================
-    // Status Label
-    //==========================================================
+    // ==========================================================
+    // STATUS
+    // ==========================================================
 
     statusLabel.setText(
         "Status: Waiting...",
@@ -127,29 +98,99 @@ MainComponent::MainComponent()
     addAndMakeVisible(
         statusLabel
     );
+
+
+    // ==========================================================
+    // STEM LABELS
+    // ==========================================================
+
+    auto setupStemLabel =
+        [](juce::Label& label,
+           const juce::String& text)
+    {
+        label.setText(
+            text,
+            juce::dontSendNotification
+        );
+
+        label.setJustificationType(
+            juce::Justification::centredLeft
+        );
+    };
+
+
+    setupStemLabel(
+        vocalsLabel,
+        "01  Vocals"
+    );
+
+    setupStemLabel(
+        drumsLabel,
+        "02  Drums"
+    );
+
+    setupStemLabel(
+        bassLabel,
+        "03  Bass"
+    );
+
+    setupStemLabel(
+        instrumentalLabel,
+        "04  Instrumental"
+    );
+
+
+    addAndMakeVisible(
+        vocalsLabel
+    );
+
+    addAndMakeVisible(
+        drumsLabel
+    );
+
+    addAndMakeVisible(
+        bassLabel
+    );
+
+    addAndMakeVisible(
+        instrumentalLabel
+    );
+
+
+    // ==========================================================
+    // OUTPUT BUTTON
+    // ==========================================================
+
+    addAndMakeVisible(
+        openOutputButton
+    );
+
+    openOutputButton.onClick = [this]
+    {
+        openOutputFolder();
+    };
+
+
+    // Initially hide output controls.
+    clearSeparatedStems();
 }
 
 
-//==============================================================
-// Destructor
-//==============================================================
+// ==============================================================
+// DESTRUCTOR
+// ==============================================================
 
 MainComponent::~MainComponent()
 {
-    if (separationThread != nullptr)
-    {
-        separationThread->stopThread(
-            5000
-        );
+    stopTimer();
 
-        separationThread.reset();
-    }
+    separatorProcess.reset();
 }
 
 
-//==============================================================
-// Paint
-//==============================================================
+// ==============================================================
+// PAINT
+// ==============================================================
 
 void MainComponent::paint(
     juce::Graphics& g
@@ -161,40 +202,31 @@ void MainComponent::paint(
 }
 
 
-//==============================================================
-// Resized
-//==============================================================
+// ==============================================================
+// RESIZED
+// ==============================================================
 
 void MainComponent::resized()
 {
-    auto area = getLocalBounds()
-        .reduced(40);
+    auto area =
+        getLocalBounds().reduced(40);
 
 
-    //==========================================================
+    // ----------------------------------------------------------
     // Title
-    //==========================================================
+    // ----------------------------------------------------------
 
     titleLabel.setBounds(
         area.removeFromTop(60)
     );
 
 
-    //==========================================================
-    // Version
-    //==========================================================
-
-    versionLabel.setBounds(
-        area.removeFromTop(25)
-    );
-
-
     area.removeFromTop(20);
 
 
-    //==========================================================
-    // Select Button
-    //==========================================================
+    // ----------------------------------------------------------
+    // Select
+    // ----------------------------------------------------------
 
     selectButton.setBounds(
         area.removeFromTop(40)
@@ -205,27 +237,27 @@ void MainComponent::resized()
     );
 
 
-    area.removeFromTop(20);
+    area.removeFromTop(15);
 
 
-    //==========================================================
-    // File Label
-    //==========================================================
+    // ----------------------------------------------------------
+    // File
+    // ----------------------------------------------------------
 
     fileLabel.setBounds(
-        area.removeFromTop(40)
+        area.removeFromTop(35)
     );
 
 
-    area.removeFromTop(20);
+    area.removeFromTop(15);
 
 
-    //==========================================================
-    // Separate Button
-    //==========================================================
+    // ----------------------------------------------------------
+    // Separate
+    // ----------------------------------------------------------
 
     separateButton.setBounds(
-        area.removeFromTop(50)
+        area.removeFromTop(45)
             .withSizeKeepingCentre(
                 180,
                 45
@@ -233,22 +265,196 @@ void MainComponent::resized()
     );
 
 
-    area.removeFromTop(30);
+    area.removeFromTop(20);
 
 
-    //==========================================================
+    // ----------------------------------------------------------
     // Status
-    //==========================================================
+    // ----------------------------------------------------------
 
     statusLabel.setBounds(
+        area.removeFromTop(35)
+    );
+
+
+    area.removeFromTop(20);
+
+
+    // ----------------------------------------------------------
+    // Stem area
+    // ----------------------------------------------------------
+
+    vocalsLabel.setBounds(
+        area.removeFromTop(35)
+    );
+
+    drumsLabel.setBounds(
+        area.removeFromTop(35)
+    );
+
+    bassLabel.setBounds(
+        area.removeFromTop(35)
+    );
+
+    instrumentalLabel.setBounds(
+        area.removeFromTop(35)
+    );
+
+
+    area.removeFromTop(15);
+
+
+    // ----------------------------------------------------------
+    // Output button
+    // ----------------------------------------------------------
+
+    openOutputButton.setBounds(
         area.removeFromTop(40)
+            .withSizeKeepingCentre(
+                220,
+                40
+            )
     );
 }
 
 
-//==============================================================
-// Select Audio File
-//==============================================================
+// ==============================================================
+// STATUS
+// ==============================================================
+
+void MainComponent::setStatus(
+    const juce::String& message
+)
+{
+    statusLabel.setText(
+        message,
+        juce::dontSendNotification
+    );
+}
+
+
+// ==============================================================
+// CLEAR STEMS
+// ==============================================================
+
+void MainComponent::clearSeparatedStems()
+{
+    vocalsLabel.setVisible(false);
+    drumsLabel.setVisible(false);
+    bassLabel.setVisible(false);
+    instrumentalLabel.setVisible(false);
+
+    openOutputButton.setVisible(false);
+}
+
+
+// ==============================================================
+// SHOW STEMS
+// ==============================================================
+
+void MainComponent::showSeparatedStems()
+{
+    if (!outputFolder.isDirectory())
+    {
+        setStatus(
+            "ERROR: Output folder not found"
+        );
+
+        return;
+    }
+
+
+    const auto vocals =
+        outputFolder.getChildFile(
+            "01_Vocals.wav"
+        );
+
+    const auto drums =
+        outputFolder.getChildFile(
+            "02_Drums.wav"
+        );
+
+    const auto bass =
+        outputFolder.getChildFile(
+            "03_Bass.wav"
+        );
+
+    const auto instrumental =
+        outputFolder.getChildFile(
+            "04_Instrumental.wav"
+        );
+
+
+    // ----------------------------------------------------------
+    // Verify files
+    // ----------------------------------------------------------
+
+    if (!vocals.existsAsFile() ||
+        !drums.existsAsFile() ||
+        !bass.existsAsFile() ||
+        !instrumental.existsAsFile())
+    {
+        setStatus(
+            "ERROR: One or more stems are missing"
+        );
+
+        return;
+    }
+
+
+    // ----------------------------------------------------------
+    // Display
+    // ----------------------------------------------------------
+
+    vocalsLabel.setText(
+        "01  Vocals",
+        juce::dontSendNotification
+    );
+
+    drumsLabel.setText(
+        "02  Drums",
+        juce::dontSendNotification
+    );
+
+    bassLabel.setText(
+        "03  Bass",
+        juce::dontSendNotification
+    );
+
+    instrumentalLabel.setText(
+        "04  Instrumental",
+        juce::dontSendNotification
+    );
+
+
+    vocalsLabel.setVisible(true);
+    drumsLabel.setVisible(true);
+    bassLabel.setVisible(true);
+    instrumentalLabel.setVisible(true);
+
+    openOutputButton.setVisible(true);
+
+
+    resized();
+}
+
+
+// ==============================================================
+// OPEN OUTPUT FOLDER
+// ==============================================================
+
+void MainComponent::openOutputFolder()
+{
+    if (outputFolder.isDirectory())
+    {
+        outputFolder.revealToUser();
+    }
+}
+
+
+// ==============================================================
+// FILE PICKER
+// ==============================================================
 
 void MainComponent::selectAudioFile()
 {
@@ -256,24 +462,25 @@ void MainComponent::selectAudioFile()
         std::make_shared<juce::FileChooser>(
             "Select audio file...",
             juce::File{},
-            "*.mp3;*.wav;*.flac;*.ogg"
+            "*.mp3;*.wav;*.flac"
         );
 
 
     chooser->launchAsync(
-        juce::FileBrowserComponent::openMode
-        |
+        juce::FileBrowserComponent::openMode |
         juce::FileBrowserComponent::canSelectFiles,
 
         [this, chooser]
         (const juce::FileChooser&)
         {
-            auto file = chooser->getResult();
+            auto file =
+                chooser->getResult();
 
 
             if (file.existsAsFile())
             {
-                selectedFile = file;
+                selectedFile =
+                    file;
 
 
                 fileLabel.setText(
@@ -282,442 +489,233 @@ void MainComponent::selectAudioFile()
                 );
 
 
-                statusLabel.setText(
-                    "Status: Ready",
-                    juce::dontSendNotification
+                setStatus(
+                    "Status: Ready"
                 );
+
+
+                clearSeparatedStems();
             }
         }
     );
 }
 
 
-//==============================================================
-// Find Project Root
-//==============================================================
-
-juce::File MainComponent::getProjectRoot() const
-{
-    /*
-        Development layout:
-
-        OfforAI
-        │
-        ├── demucs-engine
-        │   └── separator.py
-        │
-        ├── demucs-env
-        │   └── Scripts
-        │       └── python.exe
-        │
-        └── OfforStemSplitter
-            └── build
-                └── OfforStemSplitter_artefacts
-                    └── Release
-                        └── Offor Stem Splitter.exe
-    */
-
-    auto executable =
-        juce::File::getSpecialLocation(
-            juce::File::currentExecutableFile
-        );
-
-
-    auto releaseFolder =
-        executable.getParentDirectory();
-
-
-    auto artefactsFolder =
-        releaseFolder.getParentDirectory();
-
-
-    auto buildFolder =
-        artefactsFolder.getParentDirectory();
-
-
-    auto projectFolder =
-        buildFolder.getParentDirectory();
-
-
-    return projectFolder.getParentDirectory();
-}
-
-
-//==============================================================
-// Python Executable
-//==============================================================
-
-juce::File MainComponent::getPythonExecutable() const
-{
-    auto projectRoot =
-        getProjectRoot();
-
-
-    return projectRoot
-        .getChildFile("demucs-env")
-        .getChildFile("Scripts")
-        .getChildFile("python.exe");
-}
-
-
-//==============================================================
-// Separator Script
-//==============================================================
-
-juce::File MainComponent::getSeparatorScript() const
-{
-    auto projectRoot =
-        getProjectRoot();
-
-
-    return projectRoot
-        .getChildFile("demucs-engine")
-        .getChildFile("separator.py");
-}
-
-
-//==============================================================
-// Run Separator
-//==============================================================
+// ==============================================================
+// RUN SEPARATOR
+// ==============================================================
 
 void MainComponent::runSeparator()
 {
     if (!selectedFile.existsAsFile())
     {
-        statusLabel.setText(
-            "Please select an audio file first",
-            juce::dontSendNotification
+        setStatus(
+            "Please select an audio file first"
         );
 
         return;
     }
 
 
-    //==========================================================
-    // Prevent multiple separation jobs
-    //==========================================================
+    // ----------------------------------------------------------
+    // Prevent duplicate processes
+    // ----------------------------------------------------------
 
-    if (separationThread != nullptr)
+    if (separatorProcess != nullptr)
     {
-        if (separationThread->isThreadRunning())
+        if (separatorProcess->isRunning())
         {
-            statusLabel.setText(
-                "Status: Separation already running...",
-                juce::dontSendNotification
+            setStatus(
+                "Status: Separation already running..."
             );
 
             return;
         }
 
-        separationThread.reset();
+        separatorProcess.reset();
     }
 
 
-    //==========================================================
-    // Check Python
-    //==========================================================
+    // ----------------------------------------------------------
+    // Python
+    // ----------------------------------------------------------
 
-    auto python =
-        getPythonExecutable();
+    const juce::File pythonExecutable(
+        "C:\\AudioDevelopment\\OfforAudioDev"
+        "\\OfforAI\\demucs-env\\Scripts\\python.exe"
+    );
 
 
-    if (!python.existsAsFile())
+    // ----------------------------------------------------------
+    // separator.py
+    // ----------------------------------------------------------
+
+    const juce::File separatorScript(
+        "C:\\AudioDevelopment\\OfforAudioDev"
+        "\\OfforAI\\demucs-engine\\separator.py"
+    );
+
+
+    if (!pythonExecutable.existsAsFile())
     {
-        statusLabel.setText(
-            "Error: Python environment not found",
-            juce::dontSendNotification
+        setStatus(
+            "ERROR: Python environment not found"
         );
 
         return;
     }
 
 
-    //==========================================================
-    // Check separator.py
-    //==========================================================
-
-    auto separator =
-        getSeparatorScript();
-
-
-    if (!separator.existsAsFile())
+    if (!separatorScript.existsAsFile())
     {
-        statusLabel.setText(
-            "Error: separator.py not found",
-            juce::dontSendNotification
+        setStatus(
+            "ERROR: separator.py not found"
         );
 
         return;
     }
 
 
-    //==========================================================
-    // Update UI
-    //==========================================================
-
-    statusLabel.setText(
-        "Status: Separating...",
-        juce::dontSendNotification
-    );
-
-
-    selectButton.setEnabled(
-        false
-    );
-
-    separateButton.setEnabled(
-        false
-    );
-
-
-    //==========================================================
-    // Start background thread
-    //==========================================================
-
-    separationThread =
-        std::make_unique<SeparationThread>(
-            *this,
-            selectedFile
-        );
-
-
-    separationThread->startThread();
-}
-
-
-//==============================================================
-// Separation Finished
-//==============================================================
-
-void MainComponent::separationFinished(
-    bool success,
-    const juce::String& message
-)
-{
-    selectButton.setEnabled(
-        true
-    );
-
-    separateButton.setEnabled(
-        true
-    );
-
-
-    if (success)
-    {
-        statusLabel.setText(
-            "Status: Separation complete",
-            juce::dontSendNotification
-        );
-
-        juce::AlertWindow::showMessageBoxAsync(
-            juce::MessageBoxIconType::InfoIcon,
-            "Offor Stem Splitter",
-            message
-        );
-    }
-    else
-    {
-        statusLabel.setText(
-            "Status: Separation failed",
-            juce::dontSendNotification
-        );
-
-        juce::AlertWindow::showMessageBoxAsync(
-            juce::MessageBoxIconType::WarningIcon,
-            "Offor Stem Splitter",
-            message
-        );
-    }
-}
-
-
-//==============================================================
-// SeparationThread Constructor
-//==============================================================
-
-MainComponent::SeparationThread::SeparationThread(
-    MainComponent& ownerToUse,
-    const juce::File& audioFileToUse
-)
-    : juce::Thread("Offor Demucs Separation"),
-      owner(ownerToUse),
-      audioFile(audioFileToUse)
-{
-}
-
-
-//==============================================================
-// SeparationThread Destructor
-//==============================================================
-
-MainComponent::SeparationThread::~SeparationThread()
-{
-    stopThread(
-        5000
-    );
-}
-
-
-//==============================================================
-// SeparationThread Run
-//==============================================================
-
-void MainComponent::SeparationThread::run()
-{
-    auto python =
-        owner.getPythonExecutable();
-
-
-    auto separator =
-        owner.getSeparatorScript();
-
-
-    //==========================================================
-    // Build Python command
-    //==========================================================
+    // ----------------------------------------------------------
+    // Build command
+    // ----------------------------------------------------------
 
     juce::StringArray command;
 
-
     command.add(
-        python.getFullPathName()
+        pythonExecutable.getFullPathName()
     );
 
     command.add(
-        separator.getFullPathName()
+        separatorScript.getFullPathName()
     );
 
     command.add(
-        audioFile.getFullPathName()
+        selectedFile.getFullPathName()
     );
 
 
-    //==========================================================
-    // Start Python process
-    //==========================================================
+    // ----------------------------------------------------------
+    // Create process
+    // ----------------------------------------------------------
 
-    juce::ChildProcess process;
-
-
-    if (!process.start(
-            command,
-            juce::ChildProcess::wantStdOut
-            |
-            juce::ChildProcess::wantStdErr
-        ))
-    {
-        juce::Component::SafePointer<MainComponent>
-            safeOwner(&owner);
+    separatorProcess =
+        std::make_unique<juce::ChildProcess>();
 
 
-        juce::MessageManager::callAsync(
-            [safeOwner]
-            {
-                if (safeOwner != nullptr)
-                {
-                    safeOwner->separationFinished(
-                        false,
-                        "Could not start the Demucs Python process."
-                    );
-                }
-            }
+    setStatus(
+        "Status: Starting Demucs..."
+    );
+
+
+    const bool started =
+        separatorProcess->start(
+            command
         );
 
 
-        return;
-    }
-
-
-    //==========================================================
-    // Wait for process
-    //==========================================================
-
-    while (!threadShouldExit())
+    if (!started)
     {
-        if (process.waitForProcessToFinish(500))
-            break;
-    }
+        separatorProcess.reset();
 
-
-    //==========================================================
-    // If JUCE is shutting down, stop the process
-    //==========================================================
-
-    if (threadShouldExit())
-    {
-        if (process.isRunning())
-            process.kill();
-
+        setStatus(
+            "ERROR: Could not start Python"
+        );
 
         return;
     }
 
 
-    //==========================================================
-    // Read Python output
-    //==========================================================
+    // ----------------------------------------------------------
+    // Monitor
+    // ----------------------------------------------------------
+
+    startTimer(
+        250
+    );
+}
 
 
-   juce::String processOutput =
-    process.readAllProcessOutput();
+// ==============================================================
+// TIMER
+// ==============================================================
 
-    //==========================================================
-    // Check result
-    //==========================================================
+void MainComponent::timerCallback()
+{
+    checkSeparatorProcess();
+}
+
+
+// ==============================================================
+// CHECK PROCESS
+// ==============================================================
+
+void MainComponent::checkSeparatorProcess()
+{
+    if (separatorProcess == nullptr)
+    {
+        stopTimer();
+
+        return;
+    }
+
+
+    if (separatorProcess->isRunning())
+    {
+        setStatus(
+            "Status: Separating..."
+        );
+
+        return;
+    }
+
+
+    stopTimer();
+
 
     const int exitCode =
-        process.getExitCode();
+        separatorProcess->getExitCode();
 
 
-    const bool success =
-        exitCode == 0;
-
-
-    juce::Component::SafePointer<MainComponent>
-        safeOwner(&owner);
-
-
-    if (success)
+    if (exitCode == 0)
     {
-        auto message =
-            "The stems have been separated successfully.\n\n"
-            "Output:\n"
-            + processOutput.trim();
+        // ------------------------------------------------------
+        // Build output path
+        //
+        // separator.py creates:
+        //
+        // output\<song-name>
+        // ------------------------------------------------------
+
+        const auto songName =
+            selectedFile
+                .getFileNameWithoutExtension();
 
 
-        juce::MessageManager::callAsync(
-            [safeOwner, message]
-            {
-                if (safeOwner != nullptr)
-                {
-                    safeOwner->separationFinished(
-                        true,
-                        message
-                    );
-                }
-            }
+        outputFolder =
+            juce::File(
+                "C:\\AudioDevelopment\\OfforAudioDev"
+                "\\OfforAI\\output"
+            )
+            .getChildFile(
+                songName
+            );
+
+
+        showSeparatedStems();
+
+
+        setStatus(
+            "Status: Separation complete"
         );
     }
     else
     {
-        auto message =
-            "Demucs returned an error.\n\n"
-            + processOutput.trim();
-
-
-        juce::MessageManager::callAsync(
-            [safeOwner, message]
-            {
-                if (safeOwner != nullptr)
-                {
-                    safeOwner->separationFinished(
-                        false,
-                        message
-                    );
-                }
-            }
+        setStatus(
+            "ERROR: Demucs returned error"
         );
     }
-}
 
+
+    separatorProcess.reset();
+}

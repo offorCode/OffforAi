@@ -2,79 +2,25 @@
 
 #include <JuceHeader.h>
 
-class MainComponent : public juce::Component
+class MainComponent
+    : public juce::Component,
+      private juce::Timer
 {
 public:
 
     MainComponent();
     ~MainComponent() override;
 
-
     void paint(juce::Graphics&) override;
-
     void resized() override;
-
 
 private:
 
-    //==============================================================
-    // Separation Thread
-    //==============================================================
-
-    class SeparationThread : public juce::Thread
-    {
-    public:
-
-        SeparationThread(
-            MainComponent& owner,
-            const juce::File& audioFile
-        );
-
-        ~SeparationThread() override;
-
-
-        void run() override;
-
-
-    private:
-
-        MainComponent& owner;
-        juce::File audioFile;
-
-        JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(
-            SeparationThread
-        );
-    };
-
-
-    //==============================================================
-    // Functions
-    //==============================================================
-
-    void selectAudioFile();
-
-    void runSeparator();
-
-    void separationFinished(
-        bool success,
-        const juce::String& message
-    );
-
-
-    juce::File getProjectRoot() const;
-
-    juce::File getPythonExecutable() const;
-
-    juce::File getSeparatorScript() const;
-
-
-    //==============================================================
+    // ==========================================================
     // UI
-    //==============================================================
+    // ==========================================================
 
     juce::Label titleLabel;
-
-    juce::Label versionLabel;
 
     juce::TextButton selectButton
     {
@@ -86,23 +32,69 @@ private:
         "SEPARATE"
     };
 
+    juce::TextButton openOutputButton
+    {
+        "OPEN OUTPUT FOLDER"
+    };
 
     juce::Label fileLabel;
-
     juce::Label statusLabel;
 
 
-    //==============================================================
-    // State
-    //==============================================================
+    // ==========================================================
+    // Stem labels
+    // ==========================================================
+
+    juce::Label vocalsLabel;
+    juce::Label drumsLabel;
+    juce::Label bassLabel;
+    juce::Label instrumentalLabel;
+
+
+    // ==========================================================
+    // Audio
+    // ==========================================================
 
     juce::File selectedFile;
+    juce::File outputFolder;
 
-    std::unique_ptr<SeparationThread> separationThread;
+
+    // ==========================================================
+    // Python / Demucs
+    // ==========================================================
+
+    std::unique_ptr<juce::ChildProcess> separatorProcess;
+
+
+    // ==========================================================
+    // Functions
+    // ==========================================================
+
+    void selectAudioFile();
+
+    void runSeparator();
+
+    void checkSeparatorProcess();
+
+    void showSeparatedStems();
+
+    void clearSeparatedStems();
+
+    void openOutputFolder();
+
+    void setStatus(
+        const juce::String& message
+    );
+
+
+    // ==========================================================
+    // Timer
+    // ==========================================================
+
+    void timerCallback() override;
 
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(
         MainComponent
-    );
+    )
 };
-
