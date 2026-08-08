@@ -1,5 +1,6 @@
 #include <JuceHeader.h>
 #include "MainComponent.h"
+#include "AppConfig.h"
 
 
 class OfforStemSplitterApplication 
@@ -15,7 +16,7 @@ public:
 
     const juce::String getApplicationVersion() override
     {
-        return "0.1.0";
+        return OfforStemSplitter::VERSION;
     }
 
 
