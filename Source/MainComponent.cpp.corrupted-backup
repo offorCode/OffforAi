@@ -75,14 +75,13 @@ MainComponent::MainComponent()
     headerTitleLabel.setFont(
         juce::Font(
             juce::FontOptions()
-                .withHeight(18.0f)
+                .withHeight(15.0f)
                 .withStyle("Bold")
         )
     );
 
     headerTitleLabel.setColour(
         juce::Label::textColourId,
-        juce::Colour(0xffd7d7d7)
     );
 
     headerTitleLabel.setJustificationType(
@@ -227,9 +226,7 @@ MainComponent::MainComponent()
 
     exportSectionButton.setColour(
         juce::TextButton::textColourOffId,
-        juce::Colour(0xffd7d7d7)
     );
-
     addAndMakeVisible(
         fileLabel
     );
@@ -257,7 +254,6 @@ MainComponent::MainComponent()
 
     statusLabel.setColour(
         juce::Label::textColourId,
-        juce::Colour(0xff9a9a9a)
     );
 
     addAndMakeVisible(
@@ -278,7 +274,7 @@ MainComponent::MainComponent()
     );
 
     progressLabel.setFont(
-        juce::Font(21.0f)
+        juce::Font(18.0f)
     );
 
     progressLabel.setVisible(
@@ -328,7 +324,6 @@ MainComponent::MainComponent()
 
     exportMenuBox.setColour(
         juce::ComboBox::textColourId,
-        juce::Colour(0xffd7d7d7)
     );
 
     exportMenuBox.setColour(
@@ -409,7 +404,6 @@ MainComponent::MainComponent()
 
     exportFormatBox.setColour(
         juce::ComboBox::textColourId,
-        juce::Colour(0xffd7d7d7)
     );
 
     exportFormatBox.setColour(
@@ -432,7 +426,6 @@ MainComponent::MainComponent()
 
     normalizeButton.setColour(
         juce::ToggleButton::textColourId,
-        juce::Colour(0xffd7d7d7)
     );
 
     normalizeButton.setColour(
@@ -454,13 +447,12 @@ MainComponent::MainComponent()
 
     versionLabel.setColour(
         juce::Label::textColourId,
-        juce::Colour(0xff8f8f8f)
     );
 
     versionLabel.setFont(
         juce::Font(
             juce::FontOptions()
-                .withHeight(14.0f)
+                .withHeight(12.0f)
         )
     );
 
@@ -486,7 +478,6 @@ MainComponent::MainComponent()
 
     exportSectionButton.setColour(
         juce::TextButton::textColourOffId,
-        juce::Colour(0xffd7d7d7)
     );
 
     exportSectionButton.setColour(
@@ -585,7 +576,6 @@ MainComponent::MainComponent()
 
         label.setColour(
             juce::Label::textColourId,
-            juce::Colour(0xffd7d7d7)
         );
     };
 
@@ -1034,7 +1024,9 @@ void MainComponent::paint(juce::Graphics& g)
 
     if (vocalsTrack.isVisible())
     {
-        auto stemsHeader = getLocalBounds().reduced(24);
+        auto stemsHeader =
+            getLocalBounds()
+                .reduced(24);
 
         stemsHeader.removeFromTop(
             46 + 12 + dropZoneBounds.getHeight()
@@ -1042,13 +1034,13 @@ void MainComponent::paint(juce::Graphics& g)
 
         stemsHeader.removeFromTop(8);
 
-        auto headerRow = stemsHeader.removeFromTop(22);
+        stemsHeader =
+            stemsHeader.removeFromTop(20);
 
-        // --------------------------------------------------
-        // LEFT TITLE
-        // --------------------------------------------------
-
-        g.setColour(orange.withAlpha(0.75f));
+        // Left title
+        g.setColour(
+            orange.withAlpha(0.75f)
+        );
 
         g.setFont(
             juce::Font(
@@ -1060,19 +1052,18 @@ void MainComponent::paint(juce::Graphics& g)
 
         g.drawText(
             "SEPARATED STEMS",
-            headerRow.removeFromLeft(160),
-            juce::Justification::centredLeft,
+            stemsHeader.removeFromLeft(160),
+            juce::Justification::left,
             false
         );
 
-        // --------------------------------------------------
-        // RIGHT DURATION
-        // --------------------------------------------------
-
+        // Right duration
         if (playbackLength > 0.0)
         {
             const int totalSeconds =
-                static_cast<int>(playbackLength);
+                static_cast<int>(
+                    playbackLength
+                );
 
             const int minutes =
                 totalSeconds / 60;
@@ -1080,12 +1071,15 @@ void MainComponent::paint(juce::Graphics& g)
             const int seconds =
                 totalSeconds % 60;
 
-            const juce::String duration =
+            juce::String duration =
                 juce::String(minutes)
                 + ":"
-                + juce::String(seconds).paddedLeft('0', 2);
+                + juce::String(seconds)
+                    .paddedLeft('0', 2);
 
-            g.setColour(orange.withAlpha(0.32f));
+            g.setColour(
+                    .withAlpha(0.32f)
+            );
 
             g.setFont(
                 juce::Font(
@@ -1096,12 +1090,13 @@ void MainComponent::paint(juce::Graphics& g)
 
             g.drawText(
                 duration,
-                headerRow,
-                juce::Justification::centredRight,
+                stemsHeader,
+                juce::Justification::right,
                 false
             );
         }
     }
+
     // ======================================================
     // BOTTOM BAR
     // ======================================================
@@ -1146,6 +1141,7 @@ void MainComponent::paint(juce::Graphics& g)
         0.5f
     );
 }
+
 // ==============================================================
 // MOUSE DOWN
 // ==============================================================
@@ -1201,7 +1197,15 @@ void MainComponent::mouseDown(
 
 //     // ==========================================================
 //     // MAIN CONTENT
-//     // ============ showLargeDropZone =
+//     // ==========================================================
+
+//     area.removeFromTop(12);
+
+//     // ==========================================================
+//     // DROP ZONE
+//     // ==========================================================
+
+//     const bool showLargeDropZone =
 //         !vocalsTrack.isVisible();
 
 //     const int dropZoneHeight =
@@ -1226,7 +1230,11 @@ void MainComponent::mouseDown(
 //     // PROGRESS
 //     // ==========================================================
 
-//     area.remov
+//     area.removeFromTop(4);
+
+//     progressLabel.setBounds(
+//         area.removeFromTop(24)
+//     );
 
 //     // ==========================================================
 //     // STATUS
@@ -1361,7 +1369,18 @@ void MainComponent::mouseDown(
 //     auto bottom =
 //         getLocalBounds()
 //             .reduced(24)
-//             .removeFromBottom(
+//             .removeFromBottom(32);
+
+//     // Version - RIGHT
+//     versionLabel.setBounds(
+//         bottom.removeFromRight(70)
+//     );
+
+//     // Normalize - next to WAV
+//     normalizeButton.setBounds(
+//         bottom.removeFromLeft(120)
+//             .reduced(2)
+//     );
 
 //     // WAV - LEFT
 //     exportFormatBox.setBounds(
@@ -1464,7 +1483,7 @@ void MainComponent::resized()
     // ======================================================
 
     progressLabel.setBounds(
-        area.removeFromTop(26)
+        area.removeFromTop(20)
     );
 
     // ======================================================
@@ -1483,8 +1502,8 @@ void MainComponent::resized()
     {
         area.removeFromTop(6);
 
-        constexpr int trackHeight = 64;
-        constexpr int gap = 4;
+        constexpr int trackHeight = 76;
+        constexpr int gap = 6;
 
         auto vocalsArea =
             area.removeFromTop(
@@ -1600,20 +1619,20 @@ void MainComponent::resized()
 
     // Version
     versionLabel.setBounds(
-        bottom.removeFromRight(85)
+        bottom.removeFromRight(70)
             .reduced(8, 0)
     );
 
     // Normalize
     normalizeButton.setBounds(
-        bottom.removeFromRight(92)
-            .reduced(3, 3)
+        bottom.removeFromRight(115)
+            .reduced(4, 3)
     );
 
     // WAV
     exportFormatBox.setBounds(
-        bottom.removeFromLeft(68)
-            .reduced(3, 3)
+        bottom.removeFromLeft(85)
+            .reduced(4, 3)
     );
 
     // ======================================================

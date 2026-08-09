@@ -30,6 +30,25 @@ public:
 
 
     // ==========================================================
+    // Solo Selection
+    // ==========================================================
+
+    void requestSoloSelectionPlayback()
+    {
+        if (!isMuted() && isSoloed() && hasSelection())
+        {
+            if (onSoloSelectionRequested)
+            {
+                onSoloSelectionRequested(
+                    selectionStart,
+                    selectionEnd
+                );
+            }
+        }
+    }
+
+
+    // ==========================================================
     // Waveform
     // ==========================================================
 
@@ -92,31 +111,40 @@ public:
 
 
     // ==========================================================
-    // Mixing Callback
+    // Whole Track Export Selection
     // ==========================================================
 
-    std::function<void()> onMixingChanged;
+    void setTrackSelected(
+        bool shouldBeSelected
+    );
 
-
-    // ==========================================================
-    // Track State Callback
-    // ==========================================================
-
-    std::function<void()> onTrackStateChanged;
-
-
-    // ==========================================================
-    // Selection Callback
-    // ==========================================================
-
-    std::function<void()> onSelectionChanged;
+    bool isTrackSelected() const
+    {
+        return trackSelected;
+    }
 
 
     // ==========================================================
-    // Seek Callback
+    // Callbacks
     // ==========================================================
 
-    std::function<void(double)> onSeek;
+    std::function<void(double, double)>
+        onSoloSelectionRequested;
+
+    std::function<void()>
+        onMixingChanged;
+
+    std::function<void()>
+        onTrackStateChanged;
+
+    std::function<void()>
+        onSelectionChanged;
+
+    std::function<void(double)>
+        onSeek;
+
+    std::function<void(bool)>
+        onTrackSelectionChanged;
 
 
     // ==========================================================
@@ -147,11 +175,18 @@ private:
     juce::Label nameLabel;
 
 
+    // Whole-track selection button
+    juce::TextButton trackSelectButton
+    {
+        "□"
+    };
+
+
+    // Mute / Solo
     juce::TextButton muteButton
     {
         "M"
     };
-
 
     juce::TextButton soloButton
     {
@@ -208,12 +243,18 @@ private:
 
 
     // ==========================================================
-    // External DAW Drag
+    // External Drag
     // ==========================================================
 
     bool externalDragStarted = false;
 
-    juce::File externalDragFile;
+    bool draggingFromControlArea = false;
+
+    bool draggingExistingSelection = false;
+
+
+    // Temporary WAV used for partial selection export
+    juce::File temporaryDragFile;
 
 
     // ==========================================================
@@ -226,16 +267,45 @@ private:
 
     float volume = 1.0f;
 
+    bool trackSelected = false;
+
 
     // ==========================================================
     // Colours
     // ==========================================================
 
-    static constexpr juce::uint32 accentColour =
+    static constexpr juce::uint32 backgroundColour =
+        0xff0d0f11;
+
+    static constexpr juce::uint32 controlColour =
+        0xff15181b;
+
+    static constexpr juce::uint32 waveformColour =
+        0xffba430d;
+
+    static constexpr juce::uint32 waveformBackgroundColour =
+        0xff181b1e;
+
+    static constexpr juce::uint32 borderColour =
+        0xff292d31;
+
+    static constexpr juce::uint32 textColour =
+        0xffeeeeee;
+
+    static constexpr juce::uint32 secondaryTextColour =
+        0xff8c9298;
+
+    static constexpr juce::uint32 buttonColour =
+        0xff202428;
+
+    static constexpr juce::uint32 buttonHoverColour =
+        0xff292e33;
+
+    static constexpr juce::uint32 buttonActiveColour =
         0xffba430d;
 
     static constexpr juce::uint32 playheadColour =
-        0xffba430d;
+        0xffff7a35;
 
 
     // ==========================================================
@@ -244,16 +314,24 @@ private:
 
     void updateButtonStates();
 
-    juce::Rectangle<int> getWaveformArea() const;
+    void updateTrackSelectionButton();
+
+    juce::Rectangle<int>
+        getWaveformArea() const;
 
 
     // ==========================================================
-    // Selection Helpers
+    // Control Area Drag
     // ==========================================================
 
-    void selectEntireTrack();
+    void beginControlAreaDrag();
 
-    bool createTemporarySelectionFile();
+
+    // ==========================================================
+    // Selection Rendering
+    // ==========================================================
+
+    bool createSelectionDragFile();
 
     bool startExternalFileDrag();
 
@@ -274,10 +352,10 @@ private:
         const juce::MouseEvent& event
     ) override;
 
-    void mouseDoubleClick(
-        const juce::MouseEvent& event
-    ) override;
 
+    // ==========================================================
+    // JUCE
+    // ==========================================================
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(
         StemTrackComponent

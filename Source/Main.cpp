@@ -74,8 +74,8 @@ public:
             );
 
             centreWithSize(
-                700,
-                300
+                620,
+                400
             );
 
             setVisible(true);

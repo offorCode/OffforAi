@@ -1,66 +1,112 @@
 #pragma once
 
 #include <JuceHeader.h>
+
+#include "AppConfig.h"
 #include "StemTrackComponent.h"
+
+#include <memory>
+
+// ============================================================
+// OFFOR STEM SPLITTER
+// Main Application Component
+// ============================================================
 
 class MainComponent
     : public juce::Component,
-      private juce::Timer
+      public juce::Timer,
+      public juce::FileDragAndDropTarget,
+      public juce::KeyListener
 {
 public:
 
+    // ========================================================
+    // Constructor / Destructor
+    // ========================================================
+
     MainComponent();
+
     ~MainComponent() override;
 
-    void paint(juce::Graphics&) override;
+
+    // ========================================================
+    // JUCE Component
+    // ========================================================
+
+    void paint(
+        juce::Graphics& g
+    ) override;
+
     void resized() override;
+
+    void mouseDown(
+        const juce::MouseEvent& event
+    ) override;
+
+    juce::MouseCursor getMouseCursor() override;
+
+
+    // ========================================================
+    // Timer
+    // ========================================================
+
+    void timerCallback() override;
+
+
+    // ========================================================
+    // Drag & Drop
+    // ========================================================
+
+    bool isInterestedInFileDrag(
+        const juce::StringArray& files
+    ) override;
+
+    void fileDragEnter(
+        const juce::StringArray& files,
+        int x,
+        int y
+    ) override;
+
+    void fileDragExit(
+        const juce::StringArray& files
+    ) override;
+
+    void filesDropped(
+        const juce::StringArray& files,
+        int x,
+        int y
+    ) override;
+
+
+    // ========================================================
+    // Keyboard
+    // ========================================================
+
+    bool keyPressed(
+        const juce::KeyPress& key,
+        juce::Component* originatingComponent
+    ) override;
+
 
 private:
 
-    void expandForTracks();
+    // ========================================================
+    // EXPORT FORMAT
+    // ========================================================
 
-    // ==========================================================
-    // Transport
-    // ==========================================================
-
-    void startPlayback();
-
-    void pausePlayback();
-
-    void stopPlayback();
-
-    void updatePlayback();
-
-
-
-    juce::TextButton playButton
+    enum class ExportFormat
     {
-        "PLAY"
+        wav,
+        flac,
+        aiff
     };
 
 
-    juce::TextButton pauseButton
-    {
-        "PAUSE"
-    };
+    // ========================================================
+    // AUDIO
+    // ========================================================
 
-
-    juce::TextButton stopButton
-    {
-        "STOP"
-    };
-
-
-    double playbackPosition = 0.0;
-
-    double playbackLength = 0.0;
-
-    bool isPlaying = false;
-
-
-    // ==========================================================
-    // Audio Playback Engine
-    // ==========================================================
+    juce::AudioFormatManager formatManager;
 
     juce::AudioDeviceManager audioDeviceManager;
 
@@ -69,151 +115,47 @@ private:
     juce::MixerAudioSource mixerSource;
 
 
-    std::unique_ptr<juce::AudioFormatReaderSource>
-        vocalsReaderSource;
+    // ========================================================
+    // STEM AUDIO
+    // ========================================================
 
-    std::unique_ptr<juce::AudioFormatReaderSource>
-        drumsReaderSource;
+    std::unique_ptr<
+        juce::AudioFormatReaderSource
+    > vocalsReaderSource;
 
-    std::unique_ptr<juce::AudioFormatReaderSource>
-        bassReaderSource;
+    std::unique_ptr<
+        juce::AudioFormatReaderSource
+    > drumsReaderSource;
 
-    std::unique_ptr<juce::AudioFormatReaderSource>
-        instrumentalReaderSource;
+    std::unique_ptr<
+        juce::AudioFormatReaderSource
+    > bassReaderSource;
 
-
-    std::unique_ptr<juce::AudioTransportSource>
-        vocalsTransport;
-
-    std::unique_ptr<juce::AudioTransportSource>
-        drumsTransport;
-
-    std::unique_ptr<juce::AudioTransportSource>
-        bassTransport;
-
-    std::unique_ptr<juce::AudioTransportSource>
-        instrumentalTransport;
+    std::unique_ptr<
+        juce::AudioFormatReaderSource
+    > instrumentalReaderSource;
 
 
-    // ==========================================================
-    // Playback Timer
-    // ==========================================================
+    std::unique_ptr<
+        juce::AudioTransportSource
+    > vocalsTransport;
 
-    class PlaybackTimer
-        : public juce::Timer
-    {
-    public:
+    std::unique_ptr<
+        juce::AudioTransportSource
+    > drumsTransport;
 
-        explicit PlaybackTimer(
-            MainComponent& owner
-        )
-            : owner(owner)
-        {
-        }
+    std::unique_ptr<
+        juce::AudioTransportSource
+    > bassTransport;
 
-
-        void timerCallback() override
-        {
-            owner.updatePlayback();
-        }
+    std::unique_ptr<
+        juce::AudioTransportSource
+    > instrumentalTransport;
 
 
-    private:
-
-        MainComponent& owner;
-    };
-
-
-    PlaybackTimer playbackTimer
-    {
-        *this
-    };
-
-
-    // ==========================================================
-    // UI
-    // ==========================================================
-
-    juce::Label titleLabel;
-
-
-    juce::TextButton selectButton
-    {
-        "Select Audio File"
-    };
-
-
-    juce::TextButton separateButton
-    {
-        "SEPARATE"
-    };
-
-
-    juce::TextButton openOutputButton
-    {
-        "OPEN OUTPUT FOLDER"
-    };
-
-    juce::TextButton exportSelectionButton
-    {
-        "EXPORT SELECTION"
-    };
-
-
-    juce::Label fileLabel;
-
-    juce::Label statusLabel;
-
-
-    // ==========================================================
-    // Stem Labels
-    // ==========================================================
-
-    juce::Label vocalsLabel;
-
-    juce::Label drumsLabel;
-
-    juce::Label bassLabel;
-
-    juce::Label instrumentalLabel;
-
-
-    // ==========================================================
-    // Stem Tracks
-    // ==========================================================
-
-    StemTrackComponent vocalsTrack
-    {
-        "VOCALS"
-    };
-
-
-    StemTrackComponent drumsTrack
-    {
-        "DRUMS"
-    };
-
-
-    StemTrackComponent bassTrack
-    {
-        "BASS"
-    };
-
-
-    StemTrackComponent instrumentalTrack
-    {
-        "INSTRUMENTAL"
-    };
-
-
-    // ==========================================================
-    // Audio Files
-    // ==========================================================
-
-    juce::File selectedFile;
-
-    juce::File outputFolder;
-
+    // ========================================================
+    // STEM FILES
+    // ========================================================
 
     juce::File vocalsFile;
 
@@ -224,69 +166,414 @@ private:
     juce::File instrumentalFile;
 
 
-    // ==========================================================
-    // Audio Format Manager
-    // ==========================================================
+    // ========================================================
+    // SELECTED AUDIO
+    // ========================================================
 
-    juce::AudioFormatManager formatManager;
+    juce::File selectedFile;
 
-
-    // ==========================================================
-    // Python / Demucs
-    // ==========================================================
-
-    std::unique_ptr<juce::ChildProcess>
-        separatorProcess;
+    juce::File outputFolder;
 
 
-    // ==========================================================
-    // Functions
-    // ==========================================================
+    // ========================================================
+    // UI
+    // ========================================================
 
-    void selectAudioFile();
+    juce::Label headerTitleLabel;
+
+    juce::Label fileLabel;
+
+    juce::Label statusLabel;
+
+    juce::Label progressLabel;
+
+    juce::Label versionLabel;
+
+
+    // ========================================================
+    // LOGO
+    // ========================================================
+
+    juce::Image offorLogo;
+
+
+    // ========================================================
+    // CANCEL
+    // ========================================================
+
+    juce::TextButton cancelButton;
+
+
+    // ========================================================
+    // TRANSPORT
+    // ========================================================
+
+    juce::TextButton playButton {
+        "PLAY"
+    };
+
+    juce::TextButton pauseButton {
+        "PAUSE"
+    };
+
+    juce::TextButton stopButton {
+        "STOP"
+    };
+
+
+    // ========================================================
+    // EXPORT
+    // ========================================================
+
+    juce::ComboBox exportMenuBox;
+
+    juce::ComboBox exportFormatBox;
+
+    juce::ToggleButton normalizeButton {
+        "Normalize"
+    };
+
+
+    // ========================================================
+    // STEM EXPORT BUTTONS
+    // ========================================================
+
+    juce::TextButton exportSelectionButton {
+        "Export Selection"
+    };
+
+    juce::TextButton exportAllButton {
+        "Export All Stems"
+    };
+
+    juce::TextButton openOutputButton {
+        "Open Output Folder"
+    };
+
+
+    // ========================================================
+    // EXPORT SECTION
+    // ========================================================
+
+    juce::TextButton exportSectionButton {
+        "EXPORT OPTIONS"
+    };
+
+    bool exportSectionExpanded = false;
+
+    bool exportControlsVisible = false;
+
+    juce::Rectangle<int> exportSectionBounds;
+
+
+    // ========================================================
+    // DROP ZONE
+    // ========================================================
+
+    juce::Rectangle<int> dropZoneBounds;
+
+    bool isDragOver = false;
+
+
+    // ========================================================
+    // STEM TRACKS
+    // ========================================================
+
+    StemTrackComponent vocalsTrack {
+        "Vocals"
+    };
+
+    StemTrackComponent drumsTrack {
+        "Drums"
+    };
+
+    StemTrackComponent bassTrack {
+        "Bass"
+    };
+
+    StemTrackComponent instrumentalTrack {
+        "Instrumental"
+    };
+
+
+    // ========================================================
+    // STEM LABELS
+    // ========================================================
+
+    juce::Label vocalsLabel;
+
+    juce::Label drumsLabel;
+
+    juce::Label bassLabel;
+
+    juce::Label instrumentalLabel;
+
+
+    // ========================================================
+    // PLAYBACK
+    // ========================================================
+
+    class PlaybackTimer : public juce::Timer
+    {
+    public:
+        explicit PlaybackTimer(MainComponent& owner)
+            : owner(owner)
+        {
+        }
+
+        void timerCallback() override
+        {
+            owner.updatePlayback();
+        }
+
+    private:
+        MainComponent& owner;
+
+        JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(
+            PlaybackTimer
+        );
+    };
+
+    std::unique_ptr<PlaybackTimer> playbackTimer;
+
+    bool isPlaying = false;
+
+    double playbackPosition = 0.0;
+
+    double playbackLength = 0.0;
+
+
+    // ========================================================
+    // PLAYBACK SELECTION
+    // ========================================================
+
+    double playbackSelectionStart = 0.0;
+
+    double playbackSelectionEnd = 0.0;
+
+    bool playbackSelectionActive = false;
+
+
+    // ========================================================
+    // SEPARATOR PROCESS
+    // ========================================================
+
+    std::unique_ptr<
+        juce::ChildProcess
+    > separatorProcess;
+
+
+    // ========================================================
+    // SEPARATOR OUTPUT THREAD
+    // ========================================================
+
+    class SeparatorOutputThread
+        : public juce::Thread
+    {
+    public:
+
+        explicit SeparatorOutputThread(
+            MainComponent& owner
+        )
+            : juce::Thread(
+                "Offor Separator Output"
+            ),
+              owner(owner)
+        {
+        }
+
+        void run() override;
+
+    private:
+
+        MainComponent& owner;
+
+        JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(
+            SeparatorOutputThread
+        );
+    };
+
+
+    std::unique_ptr<
+        SeparatorOutputThread
+    > separatorOutputThread;
+
+
+    // ========================================================
+    // SEPARATOR OUTPUT
+    // ========================================================
+
+    juce::String separatorOutputBuffer;
+
+    juce::CriticalSection separatorOutputLock;
+
+
+    // ========================================================
+    // SEPARATION STATE
+    // ========================================================
+
+    bool separationRunning = false;
+
+    double separationProgress = 0.0;
+
+    int progressAnimationFrame = 0;
+
+
+    // ========================================================
+    // SEPARATOR
+    // ========================================================
 
     void runSeparator();
 
+    void cancelSeparator();
+
+    void startSeparatorOutputThread();
+
+    void stopSeparatorOutputThread();
+
+    void readSeparatorOutput();
+
+    void parseSeparatorProgress(
+        const juce::String& output
+    );
+
     void checkSeparatorProcess();
 
-    void showSeparatedStems();
+    void updateSeparationAnimation();
+
+
+    // ========================================================
+    // AUDIO FILE
+    // ========================================================
+
+    void selectAudioFile();
+
+    void loadSelectedFile(
+        const juce::File& file
+    );
+
+
+    // ========================================================
+    // STEM UI
+    // ========================================================
 
     void clearSeparatedStems();
 
-    void openOutputFolder();
+    void showSeparatedStems();
 
-    void exportSelectedAudio();
+    void setStemUIVisible(
+        bool shouldBeVisible
+    );
+
+
+    // ========================================================
+    // AUDIO PLAYBACK
+    // ========================================================
+
+    bool loadStemAudio();
+
+    void unloadStemAudio();
+
+    void updateTrackMixing();
+
+    void startPlayback();
+
+    void pausePlayback();
+
+    void stopPlayback();
+
+    void updatePlayback();
+
+
+    // ========================================================
+    // SEEKING
+    // ========================================================
+
+    void setupSeekCallbacks();
+
+    void setupStemTrackCallbacks();
+
+
+    double getPlaybackStartPosition() const;
+
+    double getPlaybackEndPosition() const;
+
+
+    // ========================================================
+    // TRANSPORT UI
+    // ========================================================
+
+    void setTransportVisible(
+        bool shouldBeVisible
+    );
+
+
+    // ========================================================
+    // STATUS
+    // ========================================================
 
     void setStatus(
         const juce::String& message
     );
 
 
-    // ==========================================================
-    // Audio Functions
-    // ==========================================================
+    // ========================================================
+    // WINDOW
+    // ========================================================
 
-    bool loadStemAudio();
+    void expandForTracks();
 
-    void unloadStemAudio();
-
-    
-    // ==========================================================
-    // Track Mixing
-    // ==========================================================
-
-    void updateTrackMixing();
+    void shrinkToInputWindow();
 
 
+    // ========================================================
+    // EXPORT
+    // ========================================================
 
-    // ==========================================================
-    // Timer
-    // ==========================================================
+    void updateExportControlsVisibility();
 
-    void timerCallback() override;
+    void updateExportSectionVisibility();
 
+    void exportSelectedAudio();
+
+    void exportAllStems();
+
+    void openOutputFolder();
+
+
+    // ========================================================
+    // EXPORT HELPERS
+    // ========================================================
+
+    ExportFormat getSelectedExportFormat() const;
+
+    juce::String getExportExtension() const;
+
+    juce::String getExportFilter() const;
+
+    bool writeAudioFile(
+        const juce::File& sourceFile,
+        const juce::File& destination,
+        double startTime,
+        double endTime,
+        bool normalize
+    );
+
+
+    // ========================================================
+    // KEYBOARD
+    // ========================================================
+
+    void handleKeyboardShortcut(
+        const juce::KeyPress& key
+    );
+
+
+    // ========================================================
+    // NON-COPYABLE
+    // ========================================================
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(
         MainComponent
-    )
+    );
 };
