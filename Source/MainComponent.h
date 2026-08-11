@@ -4,6 +4,7 @@
 
 #include "AppConfig.h"
 #include "StemTrackComponent.h"
+#include <atomic>
 
 #include <memory>
 
@@ -87,6 +88,10 @@ public:
         juce::Component* originatingComponent
     ) override;
 
+
+    // void focusGained(
+    //     FocusChangeType cause
+    // ) override;
 
 private:
 
@@ -414,7 +419,8 @@ private:
 
     bool separationRunning = false;
 
-    double separationProgress = 0.0;
+    // double separationProgress = 0.0;
+    std::atomic<double> separationProgress { 0.0 };
 
     int progressAnimationFrame = 0;
 

@@ -129,7 +129,7 @@ public:
     // ==========================================================
 
     std::function<void(double, double)>
-        onSoloSelectionRequested;
+    onSoloSelectionRequested;
 
     std::function<void()>
         onMixingChanged;
@@ -145,6 +145,9 @@ public:
 
     std::function<void(bool)>
         onTrackSelectionChanged;
+
+    std::function<void(double, double)>
+        onExportSelectionRequested;
 
 
     // ==========================================================

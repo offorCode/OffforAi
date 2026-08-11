@@ -939,6 +939,27 @@ void StemTrackComponent::mouseDown(
         getWaveformArea();
 
     // ======================================================
+    // Right-click = Export Selection
+    // ======================================================
+
+    if (event.mods.isPopupMenu())
+    {
+        if (waveformArea.contains(event.getPosition())
+            && hasSelection())
+        {
+            if (onExportSelectionRequested)
+            {
+                onExportSelectionRequested(
+                    selectionStart,
+                    selectionEnd
+                );
+            }
+        }
+
+        return;
+    }
+
+    // ======================================================
     // Only waveform accepts selection / DAW drag
     // ======================================================
 
