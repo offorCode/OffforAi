@@ -48,6 +48,7 @@ target_sources(OfforStemSplitter
         Source/StemTrackComponent.h
 
         Source/SettingsComponent.cpp
+        Source/LicenseManager.cpp
 
         Source/OfforStemSplitter.rc
 )

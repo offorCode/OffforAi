@@ -12,6 +12,13 @@
 MainComponent::MainComponent()
 {
 
+// ======================================================
+// LICENSE / INSTALLATION ID
+// ======================================================
+
+    loadOrCreateInstallationId();
+
+
 // ==========================================================
 // KEYBOARD FOCUS
 // ==========================================================
@@ -648,6 +655,218 @@ juce::MessageManager::callAsync(
     }
 );
 
+}
+
+
+// ============================================================
+// CHECK LICENSE BEFORE SEPARATION
+// ============================================================
+
+void MainComponent::checkLicenseBeforeSeparation()
+{
+    // --------------------------------------------------------
+    // Activated users can continue forever.
+    // --------------------------------------------------------
+
+    if (licenseManager.isActivated())
+    {
+        runSeparator();
+        return;
+    }
+
+    // --------------------------------------------------------
+    // Still within free allowance.
+    // --------------------------------------------------------
+
+    if (licenseManager.hasFreeUsesRemaining())
+    {
+        licenseManager.incrementUsage();
+
+        runSeparator();
+        return;
+    }
+
+    // --------------------------------------------------------
+    // 60 free uses have been exhausted.
+    // --------------------------------------------------------
+
+    showLicenseDialog();
+}
+
+
+// ============================================================
+// SHOW LICENSE DIALOG
+// ============================================================
+
+void MainComponent::showLicenseDialog()
+{
+    auto* content = new juce::Component();
+
+    content->setSize(
+        420,
+        240
+    );
+
+    auto* title = new juce::Label(
+        {},
+        "OFFOR STEM SPLITTER"
+    );
+
+    title->setFont(
+        juce::Font(
+            juce::FontOptions()
+                .withHeight(22.0f)
+                .withStyle("bold")
+        )
+    );
+
+    title->setJustificationType(
+        juce::Justification::centred
+    );
+
+    content->addAndMakeVisible(title);
+
+    title->setBounds(
+        20,
+        20,
+        380,
+        35
+    );
+
+
+    auto* message = new juce::Label(
+        {},
+        "Your 60 free separations have been used."
+    );
+
+    message->setJustificationType(
+        juce::Justification::centred
+    );
+
+    content->addAndMakeVisible(message);
+
+    message->setBounds(
+        20,
+        65,
+        380,
+        30
+    );
+
+
+    auto* subMessage = new juce::Label(
+        {},
+        "Purchase a license and enter your license code."
+    );
+
+    subMessage->setJustificationType(
+        juce::Justification::centred
+    );
+
+    content->addAndMakeVisible(subMessage);
+
+    subMessage->setBounds(
+        20,
+        95,
+        380,
+        30
+    );
+
+
+    auto* licenseEditor =
+        new juce::TextEditor();
+
+    licenseEditor->setTextToShowWhenEmpty(
+        "Enter license code...",
+        juce::Colours::grey
+    );
+
+    licenseEditor->setJustification(
+        juce::Justification::centred
+    );
+
+    content->addAndMakeVisible(
+        licenseEditor
+    );
+
+    licenseEditor->setBounds(
+        55,
+        135,
+        310,
+        35
+    );
+
+
+    auto* activateButton =
+        new juce::TextButton(
+            "ACTIVATE"
+        );
+
+    content->addAndMakeVisible(
+        activateButton
+    );
+
+    activateButton->setBounds(
+        140,
+        185,
+        140,
+        35
+    );
+
+
+    activateButton->onClick =
+        [this, licenseEditor]()
+    {
+        const auto key =
+            licenseEditor->getText()
+                .trim();
+
+        if (licenseManager.activate(key))
+        {
+            if (licenseWindow != nullptr)
+                licenseWindow->closeButtonPressed();
+
+            juce::AlertWindow::showMessageBoxAsync(
+                juce::AlertWindow::InfoIcon,
+                "License Activated",
+                "Thank you. Offor Stem Splitter is now activated."
+            );
+
+            runSeparator();
+        }
+        else
+        {
+            juce::AlertWindow::showMessageBoxAsync(
+                juce::AlertWindow::WarningIcon,
+                "Invalid License",
+                "The license code is invalid."
+            );
+        }
+    };
+
+
+    licenseWindow =
+    std::make_unique<juce::DialogWindow>(
+            "Offor Stem Splitter License",
+            juce::Colours::black,
+            true
+        );
+
+    licenseWindow->setContentOwned(
+        content,
+        true
+    );
+
+    licenseWindow->centreWithSize(
+        420,
+        240
+    );
+
+    licenseWindow->setResizable(
+        false,
+        false
+    );
+
+    licenseWindow->setVisible(true);
 }
 
 
@@ -2520,7 +2739,88 @@ void MainComponent::loadSelectedFile(
     // Automatically start separation
     // ==========================================================
 
-    runSeparator();
+    checkLicenseBeforeSeparation();
+}
+
+
+// ==========================================================
+// INSTALLATION ID
+// ==========================================================
+
+juce::String MainComponent::getInstallationId()
+{
+    return installationId;
+}
+
+
+// ==========================================================
+// LOAD OR CREATE INSTALLATION ID
+// ==========================================================
+
+void MainComponent::loadOrCreateInstallationId()
+{
+    // ------------------------------------------------------
+    // Application data folder
+    // ------------------------------------------------------
+
+    auto appDataFolder =
+        juce::File::getSpecialLocation(
+            juce::File::userApplicationDataDirectory
+        )
+        .getChildFile("Offor")
+        .getChildFile("StemSplitter");
+
+
+    // ------------------------------------------------------
+    // Create folder if it doesn't exist
+    // ------------------------------------------------------
+
+    if (!appDataFolder.exists())
+    {
+        appDataFolder.createDirectory();
+    }
+
+
+    // ------------------------------------------------------
+    // Installation ID file
+    // ------------------------------------------------------
+
+    auto installationFile =
+        appDataFolder.getChildFile(
+            "installation.id"
+        );
+
+
+    // ------------------------------------------------------
+    // Load existing Installation ID
+    // ------------------------------------------------------
+
+    if (installationFile.existsAsFile())
+    {
+        installationId =
+            installationFile.loadFileAsString().trim();
+
+        if (installationId.isNotEmpty())
+            return;
+    }
+
+
+    // ------------------------------------------------------
+    // Create a new Installation ID
+    // ------------------------------------------------------
+
+    juce::Uuid uuid;
+
+    installationId = uuid.toString();
+
+
+    // ------------------------------------------------------
+    // Save Installation ID
+    // ------------------------------------------------------
+
+    installationFile.replaceWithText(
+        installationId
+    );
 }
 
 // ==============================================================

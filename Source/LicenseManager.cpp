@@ -34,7 +34,10 @@ juce::PropertiesFile* LicenseManager::getProperties()
 
 bool LicenseManager::isActivated() const
 {
-    auto* settings = properties.getUserSettings();
+    auto* settings =
+        const_cast<juce::ApplicationProperties&>(
+            properties
+        ).getUserSettings();
 
     if (settings == nullptr)
         return false;
@@ -52,7 +55,10 @@ bool LicenseManager::isActivated() const
 
 juce::String LicenseManager::getStoredLicense() const
 {
-    auto* settings = properties.getUserSettings();
+    auto* settings =
+        const_cast<juce::ApplicationProperties&>(
+            properties
+        ).getUserSettings();
 
     if (settings == nullptr)
         return {};
@@ -70,7 +76,10 @@ juce::String LicenseManager::getStoredLicense() const
 
 int LicenseManager::getUsageCount() const
 {
-    auto* settings = properties.getUserSettings();
+    auto* settings =
+        const_cast<juce::ApplicationProperties&>(
+            properties
+        ).getUserSettings();
 
     if (settings == nullptr)
         return 0;

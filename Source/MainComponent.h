@@ -111,6 +111,8 @@ private:
 
     std::unique_ptr<juce::DialogWindow> licenseWindow;
 
+
+
     // ========================================================
     // EXPORT FORMAT
     // ========================================================
@@ -446,6 +448,17 @@ private:
     std::unique_ptr<
         juce::ChildProcess
     > separatorProcess;
+
+    
+    // ========================================================
+    // LICENSE / INSTALLATION ID
+    // ========================================================
+
+    juce::String installationId;
+
+    juce::String getInstallationId();
+
+    void loadOrCreateInstallationId();
 
 
     // ========================================================
