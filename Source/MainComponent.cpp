@@ -12,667 +12,644 @@
 MainComponent::MainComponent()
 {
 
-    // ==========================================================
-    // KEYBOARD FOCUS
-    // ==========================================================
+// ==========================================================
+// KEYBOARD FOCUS
+// ==========================================================
 
-    setWantsKeyboardFocus(true);
-    setMouseClickGrabsKeyboardFocus(true);
+setWantsKeyboardFocus(true);
+setMouseClickGrabsKeyboardFocus(true);
 
-    addKeyListener(this);
+addKeyListener(this);
 
-    // ==========================================================
-    // PLAY BACK TIMMER 
-    // ==========================================================
+// ==========================================================
+// PLAYBACK TIMER
+// ==========================================================
 
-    playbackTimer =
+playbackTimer =
     std::make_unique<PlaybackTimer>(*this);
 
+
+// ==========================================================
+// SEPARATION ANIMATION TIMER
+// ==========================================================
+
+progressAnimationTimer =
+    std::make_unique<ProgressAnimationTimer>(*this);
+
+// ==========================================================
+// Audio format
+// ==========================================================
+
+formatManager.registerBasicFormats();
+
+// ==========================================================
+// Audio device
+// ==========================================================
+
+auto error =
+    audioDeviceManager.initialise(
+        0,
+        2,
+        nullptr,
+        true
+    );
+
+if (error.isNotEmpty())
+{
+    setStatus(
+        "Audio device error: " + error
+    );
+}
+
+audioSourcePlayer.setSource(
+    &mixerSource
+);
+
+audioDeviceManager.addAudioCallback(
+    &audioSourcePlayer
+);
+
+// ==========================================================
+// Window
+// ==========================================================
+
+setSize(
+    620,
+    400
+);
+
+setWantsKeyboardFocus(true);
+
+// ==========================================================
+// OFFOR BRANDING
+// ==========================================================
+
+offorLogo =
+    juce::ImageCache::getFromMemory(
+        BinaryData::OfforStemSplitter_png,
+        BinaryData::OfforStemSplitter_pngSize
+    );
+
+headerTitleLabel.setText(
+    "OFFOR STEM SPLITTER",
+    juce::dontSendNotification
+);
+
+headerTitleLabel.setFont(
+    juce::Font(
+        juce::FontOptions()
+            .withHeight(18.0f)
+            .withStyle("Bold")
+    )
+);
+
+headerTitleLabel.setColour(
+    juce::Label::textColourId,
+    juce::Colour(0xffd7d7d7)
+);
+
+headerTitleLabel.setJustificationType(
+    juce::Justification::centredLeft
+);
+
+addAndMakeVisible(
+    headerTitleLabel
+);
+
+// ==========================================================
+// CANCEL BUTTON
+// ==========================================================
+
+addAndMakeVisible(
+    cancelButton
+);
+
+cancelButton.setVisible(
+    false
+);
+
+cancelButton.onClick = [this]
+{
+    cancelSeparator();
+};
+
+cancelButton.setColour(
+    juce::TextButton::buttonColourId,
+    juce::Colour(0xffff7a00)
+);
+
+cancelButton.setColour(
+    juce::TextButton::textColourOffId,
+    juce::Colours::black
+);
+
+cancelButton.setColour(
+    juce::TextButton::buttonOnColourId,
+    juce::Colour(0xffff8c1a)
+);
+
+cancelButton.setColour(
+    juce::TextButton::textColourOnId,
+    juce::Colours::black
+);
+
+// ==========================================================
+// TRANSPORT
+// ==========================================================
+
+addAndMakeVisible(
+    playButton
+);
+
+addAndMakeVisible(
+    pauseButton
+);
+
+addAndMakeVisible(
+    stopButton
+);
+
+playButton.onClick = [this]
+{
+    startPlayback();
+};
+
+pauseButton.onClick = [this]
+{
+    pausePlayback();
+};
+
+stopButton.onClick = [this]
+{
+    stopPlayback();
+};
+
+// ==========================================================
+// TRANSPORT BUTTON STYLE
+// ==========================================================
+
+auto setupTransportButton =
+    [](juce::TextButton& button)
+{
+    button.setColour(
+        juce::TextButton::buttonColourId,
+        juce::Colour(0xff181c20)
+    );
+
+    button.setColour(
+        juce::TextButton::buttonOnColourId,
+        juce::Colour(0xffff7a00)
+    );
+
+    button.setColour(
+        juce::TextButton::textColourOffId,
+        juce::Colours::white
+    );
+
+    button.setColour(
+        juce::TextButton::textColourOnId,
+        juce::Colours::black
+    );
+};
+
+setupTransportButton(
+    playButton
+);
+
+setupTransportButton(
+    pauseButton
+);
+
+setupTransportButton(
+    stopButton
+);
+
+// ==========================================================
+// FILE LABEL
+// ==========================================================
+
+fileLabel.setText(
+    "Drag an audio file here or click to browse",
+    juce::dontSendNotification
+);
+
+fileLabel.setJustificationType(
+    juce::Justification::centred
+);
+
+fileLabel.setFont(
+    juce::Font(
+        juce::FontOptions()
+            .withHeight(10.0f)
+    )
+);
+
+addAndMakeVisible(
+    fileLabel
+);
+
+// ==========================================================
+// STATUS
+// ==========================================================
+
+statusLabel.setText(
+    "Ready for you...",
+    juce::dontSendNotification
+);
+
+statusLabel.setJustificationType(
+    juce::Justification::centred
+);
+
+statusLabel.setFont(
+    juce::Font(
+        juce::FontOptions()
+            .withHeight(16.0f)
+    )
+);
+
+statusLabel.setColour(
+    juce::Label::textColourId,
+    juce::Colour(0xff9a9a9a)
+);
+
+addAndMakeVisible(
+    statusLabel
+);
+
+// ==========================================================
+// PROGRESS
+// ==========================================================
+
+progressLabel.setText(
+    "",
+    juce::dontSendNotification
+);
+
+progressLabel.setJustificationType(
+    juce::Justification::centred
+);
+
+progressLabel.setFont(
+    juce::Font(21.0f)
+);
+
+progressLabel.setVisible(
+    false
+);
+
+addAndMakeVisible(
+    progressLabel
+);
+
+
+// ==========================================================
+// COMPANY
+// ==========================================================
+
+addAndMakeVisible(
+    companyLabel
+);
+
+companyLabel.setText(
+    "ONNTECH",
+    juce::dontSendNotification
+);
+
+companyLabel.setJustificationType(
+    juce::Justification::centredLeft
+);
+
+companyLabel.setColour(
+    juce::Label::textColourId,
+    juce::Colour(0xff8f8f8f)
+);
+
+companyLabel.setFont(
+    juce::Font(
+        juce::FontOptions()
+            .withHeight(16.0f)
+    )
+);
+
+// ==========================================================
+// VERSION
+// ==========================================================
+
+addAndMakeVisible(
+    versionLabel
+);
+
+versionLabel.setText(
+    "Version " + juce::String(OfforStemSplitter::VERSION),
+    juce::dontSendNotification
+);
+
+versionLabel.setJustificationType(
+    juce::Justification::centredRight
+);
+
+versionLabel.setColour(
+    juce::Label::textColourId,
+    juce::Colour(0xff8f8f8f)
+);
+
+versionLabel.setFont(
+    juce::Font(
+        juce::FontOptions()
+            .withHeight(16.0f)
+    )
+);
+
+
+// ==========================================================
+// SETTINGS
+// ==========================================================
+
+settingsButton.setButtonText(
+    "SETTINGS"
+);
+
+settingsButton.onClick = [this]
+{
+    if (settingsWindow != nullptr)
+        return;
+
+    settingsComponent =
+    std::make_unique<SettingsComponent>();
+
     // ==========================================================
-    // Audio format
+    // SETTINGS CLOSE CALLBACK
     // ==========================================================
 
-    formatManager.registerBasicFormats();
+    settingsComponent->onClose =
+        [this]
+    {
+        juce::MessageManager::callAsync(
+            [this]
+            {
+                settingsWindow.reset();
+            }
+        );
+    };
 
-    // ==========================================================
-    // Audio device
-    // ==========================================================
+    settingsComponent->setAutoPlayEnabled(
+        autoPlayEnabled
+    );
 
-    auto error =
-        audioDeviceManager.initialise(
-            0,
-            2,
-            nullptr,
+    settingsComponent->setLoopSelectionEnabled(
+        loopSelectionEnabled
+    );
+
+    settingsComponent->setNormalizeEnabled(
+        false
+    );
+
+    settingsComponent->onSettingsChanged =
+    [this](
+        bool autoPlay,
+        bool loopSelection,
+        int exportFormat,
+        bool normalize
+     )
+    {
+        autoPlayEnabled =
+            autoPlay;
+
+        loopSelectionEnabled =
+            loopSelection;
+
+        juce::ignoreUnused(
+            exportFormat,
+            normalize
+        );
+    };
+
+    settingsWindow =
+        std::make_unique<juce::DialogWindow>(
+            "Settings",
+            juce::Colour(0xff111417),
             true
         );
 
-    if (error.isNotEmpty())
-    {
-        setStatus(
-            "Audio device error: " + error
-        );
-    }
-
-    audioSourcePlayer.setSource(
-        &mixerSource
+    settingsWindow->setContentOwned(
+        settingsComponent.release(),
+        true
     );
 
-    audioDeviceManager.addAudioCallback(
-        &audioSourcePlayer
+    settingsWindow->centreWithSize(
+        420,
+        430
     );
 
-    // ==========================================================
-    // Window
-    // ==========================================================
-
-    setSize(
-        620,
-        400
+    settingsWindow->setResizable(
+        false,
+        false
     );
 
-    setWantsKeyboardFocus(true);
+    settingsWindow->setUsingNativeTitleBar(
+        false
+    );
 
-    // ==========================================================
-    // OFFOR BRANDING
-    // ==========================================================
+    settingsWindow->setVisible(
+        true
+    );
+};
 
-    offorLogo =
-        juce::ImageCache::getFromMemory(
-            BinaryData::OfforStemSplitter_png,
-            BinaryData::OfforStemSplitter_pngSize
-        );
+addAndMakeVisible(
+    settingsButton
+);
 
-    headerTitleLabel.setText(
-        "OFFOR STEM SPLITTER",
+// ==========================================================
+// EXPORT BUTTONS
+// ==========================================================
+
+exportSelectionButton.setButtonText(
+    "EXPORT SELECTED"
+);
+
+exportSelectionButton.onClick = [this]
+{
+    exportSelectedAudio();
+};
+
+addAndMakeVisible(
+    exportAllButton
+);
+
+exportAllButton.setButtonText(
+    "EXPORT ALL"
+);
+
+exportAllButton.onClick = [this]
+{
+    exportAllStems();
+};
+
+addAndMakeVisible(
+    openOutputButton
+);
+
+openOutputButton.setButtonText(
+    "OPEN OUTPUT FOLDER"
+);
+
+openOutputButton.onClick = [this]
+{
+    openOutputFolder();
+};
+
+// ==========================================================
+// AUTO-PLAY
+// ==========================================================
+
+addAndMakeVisible(
+    autoPlayButton
+);
+
+autoPlayButton.setToggleState(
+    autoPlayEnabled,
+    juce::dontSendNotification
+);
+
+autoPlayButton.setColour(
+    juce::ToggleButton::textColourId,
+    juce::Colour(0xffd7d7d7)
+);
+
+autoPlayButton.setColour(
+    juce::ToggleButton::tickColourId,
+    juce::Colour(0xffff7a00)
+);
+
+autoPlayButton.onClick = [this]
+{
+    autoPlayEnabled =
+        autoPlayButton.getToggleState();
+};
+
+// ==========================================================
+// LOOP SELECTION
+// ==========================================================
+
+addAndMakeVisible(
+    loopSelectionButton
+);
+
+loopSelectionButton.setToggleState(
+    loopSelectionEnabled,
+    juce::dontSendNotification
+);
+
+loopSelectionButton.setColour(
+    juce::ToggleButton::textColourId,
+    juce::Colour(0xffd7d7d7)
+);
+
+loopSelectionButton.setColour(
+    juce::ToggleButton::tickColourId,
+    juce::Colour(0xffff7a00)
+);
+
+loopSelectionButton.onClick = [this]
+{
+    loopSelectionEnabled =
+        loopSelectionButton.getToggleState();
+};
+
+// ==========================================================
+// STEM LABELS
+// ==========================================================
+
+auto setupStemLabel =
+    [](juce::Label& label,
+       const juce::String& text)
+{
+    label.setText(
+        text,
         juce::dontSendNotification
     );
 
-    headerTitleLabel.setFont(
-        juce::Font(
-            juce::FontOptions()
-                .withHeight(18.0f)
-                .withStyle("Bold")
-        )
-    );
-
-    headerTitleLabel.setColour(
-        juce::Label::textColourId,
-        juce::Colour(0xffd7d7d7)
-    );
-
-    headerTitleLabel.setJustificationType(
+    label.setJustificationType(
         juce::Justification::centredLeft
     );
 
-    addAndMakeVisible(
-        headerTitleLabel
-    );
-
-    // ==========================================================
-    // CANCEL BUTTON
-    // ==========================================================
-
-    addAndMakeVisible(
-        cancelButton
-    );
-
-    cancelButton.setVisible(
-        false
-    );
-
-    cancelButton.onClick = [this]
-    {
-        cancelSeparator();
-    };
-
-    cancelButton.setColour(
-        juce::TextButton::buttonColourId,
-        juce::Colour(0xffff7a00)
-    );
-
-    cancelButton.setColour(
-        juce::TextButton::textColourOffId,
-        juce::Colours::black
-    );
-
-    cancelButton.setColour(
-        juce::TextButton::buttonOnColourId,
-        juce::Colour(0xffff8c1a)
-    );
-
-    cancelButton.setColour(
-        juce::TextButton::textColourOnId,
-        juce::Colours::black
-    );
-
-    // ==========================================================
-    // TRANSPORT
-    // ==========================================================
-
-    addAndMakeVisible(
-        playButton
-    );
-
-    addAndMakeVisible(
-        pauseButton
-    );
-
-    addAndMakeVisible(
-        stopButton
-    );
-
-    playButton.onClick = [this]
-    {
-        startPlayback();
-    };
-
-    pauseButton.onClick = [this]
-    {
-        pausePlayback();
-    };
-
-    stopButton.onClick = [this]
-    {
-        stopPlayback();
-    };
-
-    // ==========================================================
-    // TRANSPORT STYLE
-    // ==========================================================
-
-    // ==========================================================
-    // TRANSPORT BUTTON STYLE
-    // ==========================================================
-
-    auto setupTransportButton =
-        [](juce::TextButton& button)
-    {
-        button.setColour(
-            juce::TextButton::buttonColourId,
-            juce::Colour(0xff181c20)
-        );
-
-        button.setColour(
-            juce::TextButton::buttonOnColourId,
-            juce::Colour(0xffff7a00)
-        );
-
-        button.setColour(
-            juce::TextButton::textColourOffId,
-            juce::Colours::white
-        );
-
-        button.setColour(
-            juce::TextButton::textColourOnId,
-            juce::Colours::black
-        );
-    };
-
-    setupTransportButton(
-        playButton
-    );
-
-    setupTransportButton(
-        pauseButton
-    );
-
-    setupTransportButton(
-        stopButton
-    );
-
-    // ==========================================================
-    // FILE LABEL
-    // ==========================================================
-
-    fileLabel.setText(
-        "Drag an audio file here or click to browse",
-        juce::dontSendNotification
-    );
-
-    fileLabel.setJustificationType(
-        juce::Justification::centred
-    );
-
-    fileLabel.setFont(
-        juce::Font(
-            juce::FontOptions()
-                .withHeight(10.0f)
-        )
-    );
-
-    exportSectionButton.setColour(
-        juce::TextButton::textColourOffId,
-        juce::Colour(0xffd7d7d7)
-    );
-
-    addAndMakeVisible(
-        fileLabel
-    );
-
-    // ==========================================================
-    // STATUS
-    // ==========================================================
-
-    statusLabel.setText(
-        "Ready for you...",
-        juce::dontSendNotification
-    );
-
-    statusLabel.setJustificationType(
-        juce::Justification::centred
-    );
-
-
-    statusLabel.setFont(
-        juce::Font(
-            juce::FontOptions()
-                .withHeight(9.0f)
-        )
-    );
-
-    statusLabel.setColour(
+    label.setColour(
         juce::Label::textColourId,
-        juce::Colour(0xff9a9a9a)
-    );
-
-    addAndMakeVisible(
-        statusLabel
-    );
-
-    // ==========================================================
-    // PROGRESS
-    // ==========================================================
-
-    progressLabel.setText(
-        "",
-        juce::dontSendNotification
-    );
-
-    progressLabel.setJustificationType(
-        juce::Justification::centred
-    );
-
-    progressLabel.setFont(
-        juce::Font(21.0f)
-    );
-
-    progressLabel.setVisible(
-        false
-    );
-
-    addAndMakeVisible(
-        progressLabel
-    );
-
-    // ==========================================================
-    // EXPORT MENU
-    // ==========================================================
-
-    addAndMakeVisible(
-        exportMenuBox
-    );
-
-    exportMenuBox.addItem(
-        "Export Selected",
-        1
-    );
-
-    exportMenuBox.addItem(
-        "Export All Stems",
-        2
-    );
-
-    exportMenuBox.addItem(
-        "Open Output Folder",
-        3
-    );
-
-    exportMenuBox.setTextWhenNothingSelected(
-        "EXPORT"
-    );
-
-    exportMenuBox.setColour(
-        juce::ComboBox::backgroundColourId,
-        juce::Colour(0xff151515)
-    );
-
-    exportMenuBox.setColour(
-        juce::ComboBox::outlineColourId,
-        juce::Colour(0xff383838)
-    );
-
-    exportMenuBox.setColour(
-        juce::ComboBox::textColourId,
         juce::Colour(0xffd7d7d7)
     );
+};
 
-    exportMenuBox.setColour(
-        juce::ComboBox::arrowColourId,
-        juce::Colour(0xffff7a00)
-    );
+setupStemLabel(
+    vocalsLabel,
+    "01  Vocals"
+);
 
-    exportMenuBox.setEnabled(
-        false
-    );
+setupStemLabel(
+    drumsLabel,
+    "02  Drums"
+);
 
-    exportMenuBox.onChange = [this]
+setupStemLabel(
+    bassLabel,
+    "03  Bass"
+);
+
+setupStemLabel(
+    instrumentalLabel,
+    "04  Instrumental"
+);
+
+// ==========================================================
+// STEM COMPONENTS
+// ==========================================================
+
+addAndMakeVisible(
+    vocalsTrack
+);
+
+addAndMakeVisible(
+    drumsTrack
+);
+
+addAndMakeVisible(
+    bassTrack
+);
+
+addAndMakeVisible(
+    instrumentalTrack
+);
+
+// ==========================================================
+// CALLBACKS
+// ==========================================================
+
+setupSeekCallbacks();
+
+setupStemTrackCallbacks();
+
+// ==========================================================
+// INITIAL STATE
+// ==========================================================
+
+clearSeparatedStems();
+
+setTransportVisible(
+    false
+);
+
+resized();
+
+juce::MessageManager::callAsync(
+    [this]
     {
-        const int selected =
-            exportMenuBox.getSelectedId();
+        if (isShowing())
+            grabKeyboardFocus();
+    }
+);
 
-        switch (selected)
-        {
-            case 1:
-                exportSelectedAudio();
-                break;
-
-            case 2:
-                exportAllStems();
-                break;
-
-            case 3:
-                openOutputFolder();
-                break;
-
-            default:
-                break;
-        }
-
-        exportMenuBox.setSelectedId(
-            0,
-            juce::dontSendNotification
-        );
-    };
-
-    // ==========================================================
-    // EXPORT FORMAT
-    // ==========================================================
-
-    addAndMakeVisible(
-        exportFormatBox
-    );
-
-    exportFormatBox.addItem(
-        "WAV",
-        1
-    );
-
-    exportFormatBox.addItem(
-        "FLAC",
-        2
-    );
-
-    exportFormatBox.addItem(
-        "AIFF",
-        3
-    );
-
-    exportFormatBox.setSelectedId(
-        1,
-        juce::dontSendNotification
-    );
-
-    exportFormatBox.setColour(
-        juce::ComboBox::backgroundColourId,
-        juce::Colour(0xff151515)
-    );
-
-    exportFormatBox.setColour(
-        juce::ComboBox::outlineColourId,
-        juce::Colour(0xff383838)
-    );
-
-    exportFormatBox.setColour(
-        juce::ComboBox::textColourId,
-        juce::Colour(0xffd7d7d7)
-    );
-
-    exportFormatBox.setColour(
-        juce::ComboBox::arrowColourId,
-        juce::Colour(0xffff7a00)
-    );
-
-    // ==========================================================
-    // NORMALIZE
-    // ==========================================================
-
-    addAndMakeVisible(
-        normalizeButton
-    );
-
-    normalizeButton.setToggleState(
-        true,
-        juce::dontSendNotification
-    );
-
-    normalizeButton.setColour(
-        juce::ToggleButton::textColourId,
-        juce::Colour(0xffd7d7d7)
-    );
-
-    normalizeButton.setColour(
-        juce::ToggleButton::tickColourId,
-        juce::Colour(0xffff7a00)
-    );
-
-    // ==========================================================
-    // VERSION
-    // ==========================================================
-
-    addAndMakeVisible(
-        versionLabel
-    );
-
-    versionLabel.setJustificationType(
-        juce::Justification::centredRight
-    );
-
-    versionLabel.setColour(
-        juce::Label::textColourId,
-        juce::Colour(0xff8f8f8f)
-    );
-
-    versionLabel.setFont(
-        juce::Font(
-            juce::FontOptions()
-                .withHeight(14.0f)
-        )
-    );
-
-    // ==========================================================
-    // TOP / BOTTOM EXPORT BUTTON
-    // ==========================================================
-
-    addAndMakeVisible(exportSectionButton);
-
-    exportSectionButton.setButtonText(
-        "EXPORT  ▼"
-    );
-
-    exportSectionButton.setColour(
-        juce::TextButton::buttonColourId,
-        juce::Colour(0xff171b1f)
-    );
-
-    exportSectionButton.setColour(
-        juce::TextButton::buttonOnColourId,
-        juce::Colour(0xffff6b22)
-    );
-
-    exportSectionButton.setColour(
-        juce::TextButton::textColourOffId,
-        juce::Colour(0xffd7d7d7)
-    );
-
-    exportSectionButton.setColour(
-        juce::TextButton::textColourOnId,
-        juce::Colours::black
-    );
-
-    exportSectionButton.setVisible(true);
-
-    exportSectionButton.onClick = [this]
-    {
-        exportSectionExpanded =
-            !exportSectionExpanded;
-
-        exportSectionButton.setButtonText(
-            exportSectionExpanded
-                ? "EXPORT "
-                : "EXPORT "
-        );
-
-        updateExportSectionVisibility();
-        resized();
-    };
-
-    // ==========================================================
-    // EXPORT BUTTONS
-    // ==========================================================
-
-    addAndMakeVisible(
-        exportSelectionButton
-    );
-
-    exportSelectionButton.setButtonText(
-        "EXPORT SELECTED"
-    );
-
-    exportSelectionButton.onClick = [this]
-    {
-        exportSelectedAudio();
-    };
-
-    addAndMakeVisible(
-        exportAllButton
-    );
-
-    exportAllButton.setButtonText(
-        "EXPORT ALL"
-    );
-
-    exportAllButton.onClick = [this]
-    {
-        exportAllStems();
-    };
-
-    addAndMakeVisible(
-        openOutputButton
-    );
-
-    openOutputButton.setButtonText(
-        "OPEN OUTPUT FOLDER"
-    );
-
-    openOutputButton.onClick = [this]
-    {
-        openOutputFolder();
-    };
-
-    // ==========================================================
-    // EXPORT CONTROLS START HIDDEN
-    // ==========================================================
-
-    exportControlsVisible = false;
-
-    exportSectionExpanded = false;
-
-    updateExportControlsVisibility();
-
-    updateExportSectionVisibility();
-
-    // ==========================================================
-    // STEM LABELS
-    // ==========================================================
-
-    auto setupStemLabel =
-        [](juce::Label& label,
-           const juce::String& text)
-    {
-        label.setText(
-            text,
-            juce::dontSendNotification
-        );
-
-        label.setJustificationType(
-            juce::Justification::centredLeft
-        );
-
-        label.setColour(
-            juce::Label::textColourId,
-            juce::Colour(0xffd7d7d7)
-        );
-    };
-
-    setupStemLabel(
-        vocalsLabel,
-        "01  Vocals"
-    );
-
-    setupStemLabel(
-        drumsLabel,
-        "02  Drums"
-    );
-
-    setupStemLabel(
-        bassLabel,
-        "03  Bass"
-    );
-
-    setupStemLabel(
-        instrumentalLabel,
-        "04  Instrumental"
-    );
-
-    // ==========================================================
-    // STEM COMPONENTS
-    // ==========================================================
-
-    addAndMakeVisible(
-        vocalsTrack
-    );
-
-    addAndMakeVisible(
-        drumsTrack
-    );
-
-    addAndMakeVisible(
-        bassTrack
-    );
-
-    addAndMakeVisible(
-        instrumentalTrack
-    );
-
-
-    // ==========================================================
-    // CALLBACKS
-    // ==========================================================
-
-    setupSeekCallbacks();
-
-    setupStemTrackCallbacks();
-
-    // ==========================================================
-    // INITIAL STATE
-    // ==========================================================
-
-    clearSeparatedStems();
-
-    setTransportVisible(
-        false
-    );
-
-    resized();
-
-    juce::MessageManager::callAsync(
-        [this]
-        {
-            if (isShowing())
-                grabKeyboardFocus();
-        }
-    );
 }
+
 
 // ==============================================================
 // DESTRUCTOR
@@ -684,6 +661,9 @@ MainComponent::~MainComponent()
 
     if (playbackTimer)
     playbackTimer->stopTimer();
+
+    if (progressAnimationTimer)
+    progressAnimationTimer->stopTimer();
 
     stopTimer();
 
@@ -708,63 +688,6 @@ MainComponent::~MainComponent()
     stopSeparatorOutputThread();
 
     separatorProcess.reset();
-}
-
-// ==============================================================
-// EXPORT SECTION VISIBILITY
-// ==============================================================
-
-void MainComponent::updateExportSectionVisibility()
-{
-    exportSectionButton.setButtonText(
-        exportSectionExpanded
-            ? "EXPORT OPTIONS  ▲"
-            : "EXPORT OPTIONS  ▼"
-    );
-
-    exportFormatBox.setVisible(
-        exportSectionExpanded
-        && exportControlsVisible
-    );
-
-    normalizeButton.setVisible(
-        exportSectionExpanded
-        && exportControlsVisible
-    );
-
-    exportSelectionButton.setVisible(
-        exportSectionExpanded
-        && exportControlsVisible
-    );
-
-    exportAllButton.setVisible(
-        exportSectionExpanded
-        && exportControlsVisible
-    );
-
-    openOutputButton.setVisible(
-        exportSectionExpanded
-        && exportControlsVisible
-    );
-}
-
-// ==============================================================
-// EXPORT CONTROLS VISIBILITY
-// ==============================================================
-
-void MainComponent::updateExportControlsVisibility()
-{
-    const bool visible =
-        vocalsTrack.isVisible();
-
-    exportControlsVisible =
-        visible;
-
-    exportMenuBox.setEnabled(
-        visible
-    );
-
-    updateExportSectionVisibility();
 }
 
 
@@ -1096,14 +1019,21 @@ void MainComponent::paint(juce::Graphics& g)
             )
         );
 
+        // g.drawText(
+        //     "Processing... "
+        //     + juce::String(
+        //         static_cast<int>(
+        //             separationProgress * 100.0
+        //         )
+        //     )
+        //     + "%",
+        //     progressText,
+        //     juce::Justification::centred,
+        //     false
+        // );
+
         g.drawText(
-            "Processing... "
-            + juce::String(
-                static_cast<int>(
-                    separationProgress * 100.0
-                )
-            )
-            + "%",
+            "Processing...",
             progressText,
             juce::Justification::centred,
             false
@@ -1244,13 +1174,13 @@ void MainComponent::paint(juce::Graphics& g)
             g.setFont(
                 juce::Font(
                     juce::FontOptions()
-                        .withHeight(10.0f)
+                        .withHeight(12.0f)
                 )
             );
 
             g.drawText(
-                "WAV   •   MP3   •   FLAC   •   AIFF",
-                textArea.removeFromTop(20),
+                "WAV   |   MP3   |   FLAC   |   AIFF",
+                textArea.removeFromTop(22),
                 juce::Justification::centred,
                 false
             );
@@ -1428,6 +1358,10 @@ void MainComponent::resized()
     auto header =
         area.removeFromTop(46);
 
+    settingsButton.setBounds(
+        header.removeFromRight(130)
+    );
+
     // Logo
     auto logoArea =
         header
@@ -1436,16 +1370,6 @@ void MainComponent::resized()
 
     juce::ignoreUnused(
         logoArea
-    );
-
-    // Export button
-    auto exportButtonArea =
-        header
-            .removeFromRight(120)
-            .reduced(4, 5);
-
-    exportSectionButton.setBounds(
-        exportButtonArea
     );
 
     // Header title
@@ -1617,7 +1541,7 @@ void MainComponent::resized()
     }
 
     // ======================================================
-    // BOTTOM BAR
+    // FOOTER
     // ======================================================
 
     auto bottom =
@@ -1625,48 +1549,23 @@ void MainComponent::resized()
             .reduced(24)
             .removeFromBottom(34);
 
-    // Version
+    // auto footer = bottom.reduced(8, 0);
+
+    // Company - LEFT
+    companyLabel.setBounds(
+        bottom.removeFromLeft(120)
+    );
+
+    // Version - RIGHT
     versionLabel.setBounds(
-        bottom.removeFromRight(85)
-            .reduced(8, 0)
-    );
-
-    // Normalize
-    normalizeButton.setBounds(
-        bottom.removeFromRight(92)
-            .reduced(3, 3)
-    );
-
-    // WAV
-    exportFormatBox.setBounds(
-        bottom.removeFromLeft(68)
-            .reduced(3, 3)
+        bottom.removeFromRight(110)
     );
 
     // ======================================================
-    // OLD EXPORT MENU
+    // OLD EXPORT UI REMOVED
     // ======================================================
 
-    exportMenuBox.setVisible(
-        false
-    );
-
-    exportSelectionButton.setVisible(
-        false
-    );
-
-    exportAllButton.setVisible(
-        false
-    );
-
-    openOutputButton.setVisible(
-        false
-    );
-
-    exportSectionBounds = {};
 }
-
-
 
 // ==============================================================
 // MOUSE CURSOR
@@ -1757,8 +1656,6 @@ void MainComponent::setStemUIVisible(
     instrumentalTrack.setVisible(
         shouldBeVisible
     );
-
-    updateExportControlsVisibility();
 }
 
 // ==============================================================
@@ -1936,6 +1833,23 @@ void MainComponent::showSeparatedStems()
         "Finished splitting the track."
     );
 
+    // ==========================================================
+    // AUTO-PLAY
+    // ==========================================================
+
+    if (autoPlayEnabled)
+    {
+        juce::MessageManager::callAsync(
+            [this]
+            {
+                if (playbackLength > 0.0
+                    && !isPlaying)
+                {
+                    startPlayback();
+                }
+            }
+        );
+    }
 
     repaint();
 }
@@ -2719,6 +2633,9 @@ void MainComponent::runSeparator()
 
     progressAnimationFrame = 0;
 
+    if (progressAnimationTimer != nullptr)
+        progressAnimationTimer->startTimer(40);
+
     cancelButton.setVisible(
         true
     );
@@ -2799,6 +2716,9 @@ void MainComponent::runSeparator()
         separatorProcess.reset();
 
         separationRunning = false;
+
+        if (progressAnimationTimer != nullptr)
+            progressAnimationTimer->stopTimer();
 
         cancelButton.setVisible(
             false
@@ -2933,6 +2853,19 @@ void MainComponent::parseSeparatorProgress(
     }
 }
 
+// ==============================================================
+// SEPARATION ANIMATION
+// ==============================================================
+
+void MainComponent::updateSeparationAnimation()
+{
+    if (!separationRunning)
+        return;
+
+    ++progressAnimationFrame;
+
+    repaint();
+}
 
 // ==============================================================
 // TIMER CALLBACK
@@ -2940,17 +2873,6 @@ void MainComponent::parseSeparatorProgress(
 
 void MainComponent::timerCallback()
 {
-    // ==========================================================
-    // SEPARATION ANIMATION
-    // ==========================================================
-
-    if (separationRunning)
-    {
-        ++progressAnimationFrame;
-
-        repaint();
-    }
-
     // ==========================================================
     // CHECK SEPARATOR PROCESS
     // ==========================================================
@@ -2964,8 +2886,6 @@ void MainComponent::timerCallback()
     // ==========================================================
     // PROCESS HAS FINISHED
     // ==========================================================
-
-   
 
     stopTimer();
 
@@ -2988,9 +2908,11 @@ void MainComponent::timerCallback()
 
     separationRunning = false;
 
+    if (progressAnimationTimer != nullptr)
+        progressAnimationTimer->stopTimer();
+
     cancelButton.setVisible(false);
 
-    // Force progress to 100% when the process actually finishes.
     separationProgress = 1.0;
 
     progressLabel.setVisible(true);
@@ -3166,6 +3088,19 @@ void MainComponent::cancelSeparator()
 
     separationRunning = false;
 
+    // ==========================================================
+    // STOP SEPARATION ANIMATION
+    // ==========================================================
+
+    if (progressAnimationTimer != nullptr)
+        progressAnimationTimer->stopTimer();
+
+    progressAnimationFrame = 0;
+
+    // ==========================================================
+    // STOP SEPARATOR PROCESS
+    // ==========================================================
+
     if (separatorProcess != nullptr)
     {
         if (separatorProcess->isRunning())
@@ -3175,6 +3110,10 @@ void MainComponent::cancelSeparator()
     stopSeparatorOutputThread();
 
     separatorProcess.reset();
+
+    // ==========================================================
+    // RESET UI
+    // ==========================================================
 
     cancelButton.setVisible(false);
 
@@ -3302,14 +3241,16 @@ void MainComponent::stopPlayback()
     if (instrumentalTransport)
         instrumentalTransport->stop();
 
-    playbackPosition = 0.0;
+    // ==========================================================
+    // KEEP PLAYHEAD AT CURRENT POSITION
+    // ==========================================================
 
     isPlaying = false;
 
-    vocalsTrack.setPlayheadPosition(0.0);
-    drumsTrack.setPlayheadPosition(0.0);
-    bassTrack.setPlayheadPosition(0.0);
-    instrumentalTrack.setPlayheadPosition(0.0);
+    vocalsTrack.setPlayheadPosition(playbackPosition);
+    drumsTrack.setPlayheadPosition(playbackPosition);
+    bassTrack.setPlayheadPosition(playbackPosition);
+    instrumentalTrack.setPlayheadPosition(playbackPosition);
 
     setStatus("Stopped.");
 
@@ -3330,37 +3271,131 @@ void MainComponent::updatePlayback()
     if (!vocalsTransport)
         return;
 
-    if (playbackSelectionActive)
-        {
-            if (playbackPosition >= playbackSelectionEnd)
-            {
-                stopPlayback();
-
-                playbackPosition =
-                    playbackSelectionStart;
-
-                return;
-            }
-        }
-        else
-        {
-            if (playbackPosition >= playbackLength
-                || !vocalsTransport->isPlaying())
-            {
-                stopPlayback();
-                return;
-            }
-        }
+    // ==========================================================
+    // GET CURRENT POSITION
+    // ==========================================================
 
     playbackPosition =
         vocalsTransport->getCurrentPosition();
+
+    // ==========================================================
+    // SELECTION PLAYBACK
+    // ==========================================================
+
+    if (playbackSelectionActive)
+    {
+        if (playbackPosition >= playbackSelectionEnd)
+        {
+            // ==================================================
+            // LOOP SELECTION
+            // ==================================================
+
+            if (loopSelectionEnabled)
+            {
+                playbackPosition =
+                    playbackSelectionStart;
+
+                if (vocalsTransport)
+                    vocalsTransport->setPosition(
+                        playbackPosition
+                    );
+
+                if (drumsTransport)
+                    drumsTransport->setPosition(
+                        playbackPosition
+                    );
+
+                if (bassTransport)
+                    bassTransport->setPosition(
+                        playbackPosition
+                    );
+
+                if (instrumentalTransport)
+                    instrumentalTransport->setPosition(
+                        playbackPosition
+                    );
+
+                vocalsTrack.setPlayheadPosition(
+                    playbackPosition
+                );
+
+                drumsTrack.setPlayheadPosition(
+                    playbackPosition
+                );
+
+                bassTrack.setPlayheadPosition(
+                    playbackPosition
+                );
+
+                instrumentalTrack.setPlayheadPosition(
+                    playbackPosition
+                );
+
+                return;
+            }
+
+            // ==================================================
+            // NORMAL SELECTION PLAYBACK
+            // ==================================================
+
+            stopPlayback();
+
+            playbackPosition =
+                playbackSelectionStart;
+
+            vocalsTrack.setPlayheadPosition(
+                playbackPosition
+            );
+
+            drumsTrack.setPlayheadPosition(
+                playbackPosition
+            );
+
+            bassTrack.setPlayheadPosition(
+                playbackPosition
+            );
+
+            instrumentalTrack.setPlayheadPosition(
+                playbackPosition
+            );
+
+            return;
+        }
+    }
+
+    // ==========================================================
+    // NORMAL FULL-TRACK PLAYBACK
+    // ==========================================================
 
     if (playbackPosition >= playbackLength
         || !vocalsTransport->isPlaying())
     {
         stopPlayback();
+
+        playbackPosition = 0.0;
+
+        vocalsTrack.setPlayheadPosition(
+            playbackPosition
+        );
+
+        drumsTrack.setPlayheadPosition(
+            playbackPosition
+        );
+
+        bassTrack.setPlayheadPosition(
+            playbackPosition
+        );
+
+        instrumentalTrack.setPlayheadPosition(
+            playbackPosition
+        );
+
         return;
     }
+
+    // ==========================================================
+    // UPDATE PLAYHEADS
+    // ==========================================================
 
     vocalsTrack.setPlayheadPosition(
         playbackPosition
@@ -3592,52 +3627,7 @@ bool MainComponent::writeAudioFile(
         true
     );
 
-    // ==========================================================
-    // NORMALIZE
-    // ==========================================================
-
-    if (normalize)
-    {
-        float peak = 0.0f;
-
-        const int samplesRead =
-            static_cast<int>(
-                juce::jmin<juce::int64>(
-                    samplesToWrite,
-                    bufferSize
-                )
-            );
-
-        for (int channel = 0;
-             channel < numChannels;
-             ++channel)
-        {
-            peak =
-                juce::jmax(
-                    peak,
-                    buffer
-                        .getReadPointer(channel)
-                        ? buffer.getMagnitude(
-                            channel,
-                            0,
-                            samplesRead
-                        )
-                        : 0.0f
-                );
-        }
-
-        if (peak > 0.000001f)
-        {
-            const float gain =
-                0.999f / peak;
-
-            buffer.applyGain(
-                0,
-                samplesRead,
-                gain
-            );
-        }
-    }
+    
 
     // ==========================================================
     // WRITE SELECTED AUDIO
@@ -3743,6 +3733,38 @@ double MainComponent::getPlaybackEndPosition() const
 }
 
 
+// ==============================================================
+// GET EXPORT EXTENSION
+// ==============================================================
+
+juce::String MainComponent::getExportExtension() const
+{
+    switch (getSelectedExportFormat())
+    {
+        case ExportFormat::wav:
+            return ".wav";
+
+        case ExportFormat::flac:
+            return ".flac";
+
+        case ExportFormat::aiff:
+            return ".aiff";
+    }
+
+    return ".wav";
+}
+
+
+// ==============================================================
+// GET SELECTED EXPORT FORMAT
+// ==============================================================
+
+MainComponent::ExportFormat
+MainComponent::getSelectedExportFormat() const
+{
+    return ExportFormat::wav;
+}
+
 
 // ==============================================================
 // EXPORT SELECTED AUDIO
@@ -3812,15 +3834,11 @@ void MainComponent::exportSelectedAudio()
     }
 
     // ==========================================================
-    // EXPORT FORMAT
+    // EXPORT EXTENSION
     // ==========================================================
 
-    juce::String extension = ".wav";
-
-    if (exportFormatBox.getSelectedId() == 2)
-        extension = ".flac";
-    else if (exportFormatBox.getSelectedId() == 3)
-        extension = ".aiff";
+    const juce::String extension =
+        getExportExtension();
 
     // ==========================================================
     // DEFAULT FILE NAME
@@ -3863,15 +3881,11 @@ void MainComponent::exportSelectedAudio()
                 return;
 
             // ==================================================
-            // NORMALIZE
-            // ==================================================
-
-            const bool normalize =
-                normalizeButton.getToggleState();
-
-            // ==================================================
             // WRITE SELECTED AUDIO
             // ==================================================
+
+            // Normalization is currently disabled.
+            const bool normalize = false;
 
             const bool success =
                 writeAudioFile(

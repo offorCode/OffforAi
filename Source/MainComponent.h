@@ -2,11 +2,15 @@
 
 #include <JuceHeader.h>
 
-#include "AppConfig.h"
-#include "StemTrackComponent.h"
 #include <atomic>
 
 #include <memory>
+
+#include "AppConfig.h"
+#include "StemTrackComponent.h"
+#include "SettingsComponent.h"
+#include "LicenseManager.h"
+
 
 // ============================================================
 // OFFOR STEM SPLITTER
@@ -94,6 +98,18 @@ public:
     // ) override;
 
 private:
+
+    // ========================================================
+    // LICENSE
+    // ========================================================
+
+    LicenseManager licenseManager;
+
+    void checkLicenseBeforeSeparation();
+
+    void showLicenseDialog();
+
+    std::unique_ptr<juce::DialogWindow> licenseWindow;
 
     // ========================================================
     // EXPORT FORMAT
@@ -192,6 +208,8 @@ private:
 
     juce::Label progressLabel;
 
+    juce::Label companyLabel;
+
     juce::Label versionLabel;
 
 
@@ -200,6 +218,7 @@ private:
     // ========================================================
 
     juce::Image offorLogo;
+
 
 
     // ========================================================
@@ -227,16 +246,30 @@ private:
 
 
     // ========================================================
+    // SETTINGS
+    // ========================================================
+
+    juce::TextButton settingsButton
+    {
+        "SETTINGS"
+    };
+
+    std::unique_ptr<juce::DialogWindow> settingsWindow;
+
+    std::unique_ptr<SettingsComponent> settingsComponent;
+
+
+    // ========================================================
     // EXPORT
     // ========================================================
 
-    juce::ComboBox exportMenuBox;
+    // juce::ComboBox exportMenuBox;
 
-    juce::ComboBox exportFormatBox;
+    // juce::ComboBox exportFormatBox;
 
-    juce::ToggleButton normalizeButton {
-        "Normalize"
-    };
+    // juce::ToggleButton normalizeButton {
+    //     "Normalize"
+    // };
 
 
     // ========================================================
@@ -260,15 +293,15 @@ private:
     // EXPORT SECTION
     // ========================================================
 
-    juce::TextButton exportSectionButton {
-        "EXPORT OPTIONS"
-    };
+    // juce::TextButton exportSectionButton {
+    //     "EXPORT OPTIONS"
+    // };
 
-    bool exportSectionExpanded = false;
+    // bool exportSectionExpanded = false;
 
-    bool exportControlsVisible = false;
+    // bool exportControlsVisible = false;
 
-    juce::Rectangle<int> exportSectionBounds;
+    // juce::Rectangle<int> exportSectionBounds;
 
 
     // ========================================================
@@ -341,12 +374,59 @@ private:
 
     std::unique_ptr<PlaybackTimer> playbackTimer;
 
+
+    // ========================================================
+    // PROGRESS TEXT ANIMATION
+    // ========================================================
+
+    class ProgressAnimationTimer : public juce::Timer
+    {
+    public:
+
+        explicit ProgressAnimationTimer(
+            MainComponent& owner
+        )
+            : owner(owner)
+        {
+        }
+
+        void timerCallback() override
+        {
+            owner.updateSeparationAnimation();
+        }
+
+    private:
+
+        MainComponent& owner;
+
+        JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(
+            ProgressAnimationTimer
+        );
+    };
+
+
+    std::unique_ptr<ProgressAnimationTimer>
+        progressAnimationTimer;
+
     bool isPlaying = false;
 
     double playbackPosition = 0.0;
 
     double playbackLength = 0.0;
 
+    // ========================================================
+    // PLAYBACK SETTINGS
+    // ========================================================
+
+    bool autoPlayEnabled = false;
+    bool loopSelectionEnabled = false;
+
+    juce::ToggleButton autoPlayButton {
+        "Auto-play"
+    };
+    juce::ToggleButton loopSelectionButton {
+        "Loop Selection"
+    };
 
     // ========================================================
     // PLAYBACK SELECTION
@@ -583,3 +663,4 @@ private:
         MainComponent
     );
 };
+

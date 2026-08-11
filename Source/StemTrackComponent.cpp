@@ -41,6 +41,24 @@ StemTrackComponent::StemTrackComponent(
         nameLabel
     );
 
+
+    // Volume sections
+
+    volumeSlider.setColour(
+        juce::Slider::trackColourId,
+        juce::Colour(0xff252a2f)
+    );
+
+    volumeSlider.setColour(
+        juce::Slider::backgroundColourId,
+        juce::Colour(0xff252a2f)
+    );
+
+    volumeSlider.setColour(
+        juce::Slider::thumbColourId,
+        juce::Colour(0xffff6b22)
+    );
+
     // ======================================================
     // Whole Track Selection
     // ======================================================
@@ -242,8 +260,60 @@ StemTrackComponent::StemTrackComponent(
         }
     };
 
-    // Keep hidden for now.
-    volumeSlider.setVisible(false);
+    // ======================================================
+    // Volume Slider
+    // ======================================================
+
+    volumeSlider.setSliderStyle(
+        juce::Slider::LinearHorizontal
+    );
+
+    volumeSlider.setTextBoxStyle(
+        juce::Slider::NoTextBox,
+        false,
+        0,
+        0
+    );
+
+    volumeSlider.setRange(
+        0.0,
+        1.0,
+        0.01
+    );
+
+    volumeSlider.setValue(
+        1.0,
+        juce::dontSendNotification
+    );
+
+    volumeSlider.setDoubleClickReturnValue(
+        true,
+        1.0
+    );
+
+    volumeSlider.setTooltip(
+        "Track volume"
+    );
+
+    volumeSlider.onValueChange = [this]
+    {
+        volume =
+            static_cast<float>(
+                volumeSlider.getValue()
+            );
+
+        repaint();
+
+        if (onTrackStateChanged)
+        {
+            onTrackStateChanged();
+        }
+
+        if (onMixingChanged)
+        {
+            onMixingChanged();
+        }
+    };
 
     addAndMakeVisible(
         volumeSlider
@@ -387,32 +457,75 @@ void StemTrackComponent::paint(juce::Graphics& g)
     );
 
     // ======================================================
-    // STEM NAME
+    // TRACK SELECTION CHECKBOX
     // ======================================================
 
-    auto nameArea =
-        channelArea
-            .removeFromTop(20)
-            .reduced(12, 0);
+    auto checkboxArea =
+        bounds
+            .reduced(1)
+            .removeFromLeft(150)
+            .removeFromLeft(26)
+            .withSizeKeepingCentre(18, 18);
 
     g.setColour(
-        juce::Colours::white
+        trackSelected
+            ? orange
+            : juce::Colour(0xff343a40)
     );
 
-    g.setFont(
-        juce::Font(
-            juce::FontOptions()
-                .withHeight(13.0f)
-                .withStyle("Bold")
-        )
+    g.fillRoundedRectangle(
+        checkboxArea.toFloat(),
+        3.0f
     );
 
-    g.drawText(
-        stemName.toUpperCase(),
-        nameArea,
-        juce::Justification::left,
-        false
-    );
+    if (!trackSelected)
+    {
+        g.setColour(
+            juce::Colour(0xff5a6268)
+        );
+
+        g.drawRoundedRectangle(
+            checkboxArea.toFloat(),
+            3.0f,
+            1.0f
+        );
+    }
+    else
+    {
+        // ==================================================
+        // CHECK MARK
+        // ==================================================
+
+        g.setColour(
+            juce::Colours::black
+        );
+
+        juce::Path check;
+
+        check.startNewSubPath(
+            checkboxArea.getX() + 4.0f,
+            checkboxArea.getCentreY()
+        );
+
+        check.lineTo(
+            checkboxArea.getX() + 7.0f,
+            checkboxArea.getBottom() - 5.0f
+        );
+
+        check.lineTo(
+            checkboxArea.getRight() - 4.0f,
+            checkboxArea.getY() + 4.0f
+        );
+
+        g.strokePath(
+            check,
+            juce::PathStrokeType(
+                2.0f,
+                juce::PathStrokeType::curved,
+                juce::PathStrokeType::rounded
+            )
+        );
+    }
 
     // ======================================================
     // VOLUME LABEL
@@ -420,7 +533,7 @@ void StemTrackComponent::paint(juce::Graphics& g)
 
     auto volumeArea =
         channelArea
-            .removeFromBottom(16)
+            .removeFromBottom(36)
             .reduced(12, 0);
 
     g.setColour(
@@ -461,50 +574,6 @@ void StemTrackComponent::paint(juce::Graphics& g)
         false
     );
 
-    // ======================================================
-    // VOLUME TRACK
-    // ======================================================
-
-    auto volumeTrack =
-        channelArea
-            .reduced(12, 0);
-
-    volumeTrack.setY(
-        volumeTrack.getCentreY() - 2
-    );
-
-    volumeTrack.setHeight(4);
-
-    g.setColour(
-        juce::Colour(0xff252a2f)
-    );
-
-    g.fillRoundedRectangle(
-        volumeTrack.toFloat(),
-        2.0f
-    );
-
-    const float volumeRatio =
-        juce::jlimit(
-            0.0f,
-            1.0f,
-            volume
-        );
-
-    auto volumeFill =
-        volumeTrack.withWidth(
-            static_cast<int>(
-                volumeTrack.getWidth()
-                * volumeRatio
-            )
-        );
-
-    g.setColour(orange);
-
-    g.fillRoundedRectangle(
-        volumeFill.toFloat(),
-        2.0f
-    );
 
     // ======================================================
     // WAVEFORM AREA
@@ -850,20 +919,22 @@ void StemTrackComponent::resized()
             .reduced(2);
 
     // ======================================================
-    // Left Name / Selection Area
+    // LEFT NAME / SELECTION AREA
     // ======================================================
 
     auto nameArea =
-        area.removeFromLeft(125);
+        area.removeFromLeft(150);
 
-    // Checkbox
+    // ======================================================
+    // CHECKBOX
+    // ======================================================
+
+    const int checkboxWidth = 26;
 
     auto selectArea =
-        nameArea.removeFromLeft(26);
-
-    // trackSelectButton.setBounds(
-    //     selectArea.reduced(3)
-    // );
+        nameArea.removeFromLeft(
+            checkboxWidth
+        );
 
     trackSelectButton.setBounds(
         selectArea.withSizeKeepingCentre(
@@ -872,12 +943,40 @@ void StemTrackComponent::resized()
         )
     );
 
-    // Track name
+    // ======================================================
+    // GAP BETWEEN CHECKBOX AND NAME
+    // ======================================================
+
+    constexpr int nameGap = 14;
+
+    nameArea.removeFromLeft(
+        nameGap
+    );
+
+    // ======================================================
+    // TRACK NAME
+    // ======================================================
+
+    // Keep the name at the top.
+    auto nameLabelArea =
+        nameArea.removeFromTop(40);
 
     nameLabel.setBounds(
-        nameArea.reduced(
-            5,
-            0
+        nameLabelArea
+    );
+
+    // ======================================================
+    // VOLUME SLIDER
+    // ======================================================
+
+    // Push volume control down.
+    auto volumeArea =
+        nameArea.removeFromBottom(30);
+
+    volumeSlider.setBounds(
+        volumeArea.reduced(
+            8,
+            5
         )
     );
 
@@ -1655,44 +1754,6 @@ void StemTrackComponent::clearSelection()
 }
 
 
-// ==========================================================
-// Waveform Area
-//
-// IMPORTANT:
-// THIS IS THE ONLY getWaveformArea()
-// IN THIS FILE.
-//
-// Layout:
-//
-// [ NAME 125px ][ WAVEFORM ][ M/S 92px ]
-//
-// ==========================================================
-
-// juce::Rectangle<int>
-// StemTrackComponent::getWaveformArea() const
-// {
-//     auto area =
-//         getLocalBounds()
-//             .reduced(2);
-
-//     // Remove left name area.
-
-//     area.removeFromLeft(
-//         125
-//     );
-
-//     // Remove right M/S area.
-
-//     area.removeFromRight(
-//         92
-//     );
-
-//     return area.reduced(
-//         2,
-//         10
-//     );
-// }
-
 
 // ==========================================================
 // Waveform Area
@@ -2011,9 +2072,7 @@ void StemTrackComponent::setTrackSelected(
 
 void StemTrackComponent::updateTrackSelectionButton()
 {
-    trackSelectButton.setButtonText(
-        trackSelected
-            ? "✓"
-            : "□"
-    );
+    trackSelectButton.setButtonText("");
+    trackSelectButton.repaint();
 }
+
