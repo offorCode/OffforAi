@@ -12,651 +12,669 @@
 MainComponent::MainComponent()
 {
 
-// ======================================================
-// LICENSE / INSTALLATION ID
-// ======================================================
+    // ======================================================
+    // LICENSE / INSTALLATION ID
+    // ======================================================
 
     loadOrCreateInstallationId();
 
-
-// ==========================================================
-// KEYBOARD FOCUS
-// ==========================================================
-
-setWantsKeyboardFocus(true);
-setMouseClickGrabsKeyboardFocus(true);
-
-addKeyListener(this);
-
-// ==========================================================
-// PLAYBACK TIMER
-// ==========================================================
-
-playbackTimer =
-    std::make_unique<PlaybackTimer>(*this);
-
-
-// ==========================================================
-// SEPARATION ANIMATION TIMER
-// ==========================================================
-
-progressAnimationTimer =
-    std::make_unique<ProgressAnimationTimer>(*this);
-
-// ==========================================================
-// Audio format
-// ==========================================================
-
-formatManager.registerBasicFormats();
-
-// ==========================================================
-// Audio device
-// ==========================================================
-
-auto error =
-    audioDeviceManager.initialise(
-        0,
-        2,
-        nullptr,
-        true
-    );
-
-if (error.isNotEmpty())
-{
-    setStatus(
-        "Audio device error: " + error
-    );
-}
-
-audioSourcePlayer.setSource(
-    &mixerSource
-);
-
-audioDeviceManager.addAudioCallback(
-    &audioSourcePlayer
-);
-
-// ==========================================================
-// Window
-// ==========================================================
-
-setSize(
-    620,
-    400
-);
-
-setWantsKeyboardFocus(true);
-
-// ==========================================================
-// OFFOR BRANDING
-// ==========================================================
-
-offorLogo =
-    juce::ImageCache::getFromMemory(
-        BinaryData::OfforStemSplitter_png,
-        BinaryData::OfforStemSplitter_pngSize
-    );
-
-headerTitleLabel.setText(
-    "OFFOR STEM SPLITTER",
-    juce::dontSendNotification
-);
-
-headerTitleLabel.setFont(
-    juce::Font(
-        juce::FontOptions()
-            .withHeight(18.0f)
-            .withStyle("Bold")
-    )
-);
-
-headerTitleLabel.setColour(
-    juce::Label::textColourId,
-    juce::Colour(0xffd7d7d7)
-);
-
-headerTitleLabel.setJustificationType(
-    juce::Justification::centredLeft
-);
-
-addAndMakeVisible(
-    headerTitleLabel
-);
-
-// ==========================================================
-// CANCEL BUTTON
-// ==========================================================
-
-addAndMakeVisible(
-    cancelButton
-);
-
-cancelButton.setVisible(
-    false
-);
-
-cancelButton.onClick = [this]
-{
-    cancelSeparator();
-};
-
-cancelButton.setColour(
-    juce::TextButton::buttonColourId,
-    juce::Colour(0xffff7a00)
-);
-
-cancelButton.setColour(
-    juce::TextButton::textColourOffId,
-    juce::Colours::black
-);
-
-cancelButton.setColour(
-    juce::TextButton::buttonOnColourId,
-    juce::Colour(0xffff8c1a)
-);
-
-cancelButton.setColour(
-    juce::TextButton::textColourOnId,
-    juce::Colours::black
-);
-
-// ==========================================================
-// TRANSPORT
-// ==========================================================
-
-addAndMakeVisible(
-    playButton
-);
-
-addAndMakeVisible(
-    pauseButton
-);
-
-addAndMakeVisible(
-    stopButton
-);
-
-playButton.onClick = [this]
-{
-    startPlayback();
-};
-
-pauseButton.onClick = [this]
-{
-    pausePlayback();
-};
-
-stopButton.onClick = [this]
-{
-    stopPlayback();
-};
-
-// ==========================================================
-// TRANSPORT BUTTON STYLE
-// ==========================================================
-
-auto setupTransportButton =
-    [](juce::TextButton& button)
-{
-    button.setColour(
-        juce::TextButton::buttonColourId,
-        juce::Colour(0xff181c20)
-    );
-
-    button.setColour(
-        juce::TextButton::buttonOnColourId,
-        juce::Colour(0xffff7a00)
-    );
-
-    button.setColour(
-        juce::TextButton::textColourOffId,
-        juce::Colours::white
-    );
-
-    button.setColour(
-        juce::TextButton::textColourOnId,
-        juce::Colours::black
-    );
-};
-
-setupTransportButton(
-    playButton
-);
-
-setupTransportButton(
-    pauseButton
-);
-
-setupTransportButton(
-    stopButton
-);
-
-// ==========================================================
-// FILE LABEL
-// ==========================================================
-
-fileLabel.setText(
-    "Drag an audio file here or click to browse",
-    juce::dontSendNotification
-);
-
-fileLabel.setJustificationType(
-    juce::Justification::centred
-);
-
-fileLabel.setFont(
-    juce::Font(
-        juce::FontOptions()
-            .withHeight(10.0f)
-    )
-);
-
-addAndMakeVisible(
-    fileLabel
-);
-
-// ==========================================================
-// STATUS
-// ==========================================================
-
-statusLabel.setText(
-    "Ready for you...",
-    juce::dontSendNotification
-);
-
-statusLabel.setJustificationType(
-    juce::Justification::centred
-);
-
-statusLabel.setFont(
-    juce::Font(
-        juce::FontOptions()
-            .withHeight(16.0f)
-    )
-);
-
-statusLabel.setColour(
-    juce::Label::textColourId,
-    juce::Colour(0xff9a9a9a)
-);
-
-addAndMakeVisible(
-    statusLabel
-);
-
-// ==========================================================
-// PROGRESS
-// ==========================================================
-
-progressLabel.setText(
-    "",
-    juce::dontSendNotification
-);
-
-progressLabel.setJustificationType(
-    juce::Justification::centred
-);
-
-progressLabel.setFont(
-    juce::Font(21.0f)
-);
-
-progressLabel.setVisible(
-    false
-);
-
-addAndMakeVisible(
-    progressLabel
-);
-
-
-// ==========================================================
-// COMPANY
-// ==========================================================
-
-addAndMakeVisible(
-    companyLabel
-);
-
-companyLabel.setText(
-    "ONNTECH",
-    juce::dontSendNotification
-);
-
-companyLabel.setJustificationType(
-    juce::Justification::centredLeft
-);
-
-companyLabel.setColour(
-    juce::Label::textColourId,
-    juce::Colour(0xff8f8f8f)
-);
-
-companyLabel.setFont(
-    juce::Font(
-        juce::FontOptions()
-            .withHeight(16.0f)
-    )
-);
-
-// ==========================================================
-// VERSION
-// ==========================================================
-
-addAndMakeVisible(
-    versionLabel
-);
-
-versionLabel.setText(
-    "Version " + juce::String(OfforStemSplitter::VERSION),
-    juce::dontSendNotification
-);
-
-versionLabel.setJustificationType(
-    juce::Justification::centredRight
-);
-
-versionLabel.setColour(
-    juce::Label::textColourId,
-    juce::Colour(0xff8f8f8f)
-);
-
-versionLabel.setFont(
-    juce::Font(
-        juce::FontOptions()
-            .withHeight(16.0f)
-    )
-);
-
-
-// ==========================================================
-// SETTINGS
-// ==========================================================
-
-settingsButton.setButtonText(
-    "SETTINGS"
-);
-
-settingsButton.onClick = [this]
-{
-    if (settingsWindow != nullptr)
-        return;
-
-    settingsComponent =
-    std::make_unique<SettingsComponent>();
-
-    // ==========================================================
-    // SETTINGS CLOSE CALLBACK
-    // ==========================================================
-
-    settingsComponent->onClose =
-        [this]
+    juce::Timer::callAfterDelay(
+    100,
+    [this]()
     {
-        juce::MessageManager::callAsync(
-            [this]
-            {
-                settingsWindow.reset();
-            }
-        );
-    };
-
-    settingsComponent->setAutoPlayEnabled(
-        autoPlayEnabled
-    );
-
-    settingsComponent->setLoopSelectionEnabled(
-        loopSelectionEnabled
-    );
-
-    settingsComponent->setNormalizeEnabled(
-        false
-    );
-
-    settingsComponent->onSettingsChanged =
-    [this](
-        bool autoPlay,
-        bool loopSelection,
-        int exportFormat,
-        bool normalize
-     )
-    {
-        autoPlayEnabled =
-            autoPlay;
-
-        loopSelectionEnabled =
-            loopSelection;
-
-        juce::ignoreUnused(
-            exportFormat,
-            normalize
-        );
-    };
-
-    settingsWindow =
-        std::make_unique<juce::DialogWindow>(
-            "Settings",
-            juce::Colour(0xff111417),
-            true
-        );
-
-    settingsWindow->setContentOwned(
-        settingsComponent.release(),
-        true
-    );
-
-    settingsWindow->centreWithSize(
-        420,
-        430
-    );
-
-    settingsWindow->setResizable(
-        false,
-        false
-    );
-
-    settingsWindow->setUsingNativeTitleBar(
-        false
-    );
-
-    settingsWindow->setVisible(
-        true
-    );
-};
-
-addAndMakeVisible(
-    settingsButton
-);
-
-// ==========================================================
-// EXPORT BUTTONS
-// ==========================================================
-
-exportSelectionButton.setButtonText(
-    "EXPORT SELECTED"
-);
-
-exportSelectionButton.onClick = [this]
-{
-    exportSelectedAudio();
-};
-
-addAndMakeVisible(
-    exportAllButton
-);
-
-exportAllButton.setButtonText(
-    "EXPORT ALL"
-);
-
-exportAllButton.onClick = [this]
-{
-    exportAllStems();
-};
-
-addAndMakeVisible(
-    openOutputButton
-);
-
-openOutputButton.setButtonText(
-    "OPEN OUTPUT FOLDER"
-);
-
-openOutputButton.onClick = [this]
-{
-    openOutputFolder();
-};
-
-// ==========================================================
-// AUTO-PLAY
-// ==========================================================
-
-addAndMakeVisible(
-    autoPlayButton
-);
-
-autoPlayButton.setToggleState(
-    autoPlayEnabled,
-    juce::dontSendNotification
-);
-
-autoPlayButton.setColour(
-    juce::ToggleButton::textColourId,
-    juce::Colour(0xffd7d7d7)
-);
-
-autoPlayButton.setColour(
-    juce::ToggleButton::tickColourId,
-    juce::Colour(0xffff7a00)
-);
-
-autoPlayButton.onClick = [this]
-{
-    autoPlayEnabled =
-        autoPlayButton.getToggleState();
-};
-
-// ==========================================================
-// LOOP SELECTION
-// ==========================================================
-
-addAndMakeVisible(
-    loopSelectionButton
-);
-
-loopSelectionButton.setToggleState(
-    loopSelectionEnabled,
-    juce::dontSendNotification
-);
-
-loopSelectionButton.setColour(
-    juce::ToggleButton::textColourId,
-    juce::Colour(0xffd7d7d7)
-);
-
-loopSelectionButton.setColour(
-    juce::ToggleButton::tickColourId,
-    juce::Colour(0xffff7a00)
-);
-
-loopSelectionButton.onClick = [this]
-{
-    loopSelectionEnabled =
-        loopSelectionButton.getToggleState();
-};
-
-// ==========================================================
-// STEM LABELS
-// ==========================================================
-
-auto setupStemLabel =
-    [](juce::Label& label,
-       const juce::String& text)
-{
-    label.setText(
-        text,
-        juce::dontSendNotification
-    );
-
-    label.setJustificationType(
-        juce::Justification::centredLeft
-    );
-
-    label.setColour(
-        juce::Label::textColourId,
-        juce::Colour(0xffd7d7d7)
-    );
-};
-
-setupStemLabel(
-    vocalsLabel,
-    "01  Vocals"
-);
-
-setupStemLabel(
-    drumsLabel,
-    "02  Drums"
-);
-
-setupStemLabel(
-    bassLabel,
-    "03  Bass"
-);
-
-setupStemLabel(
-    instrumentalLabel,
-    "04  Instrumental"
-);
-
-// ==========================================================
-// STEM COMPONENTS
-// ==========================================================
-
-addAndMakeVisible(
-    vocalsTrack
-);
-
-addAndMakeVisible(
-    drumsTrack
-);
-
-addAndMakeVisible(
-    bassTrack
-);
-
-addAndMakeVisible(
-    instrumentalTrack
-);
-
-// ==========================================================
-// CALLBACKS
-// ==========================================================
-
-setupSeekCallbacks();
-
-setupStemTrackCallbacks();
-
-// ==========================================================
-// INITIAL STATE
-// ==========================================================
-
-clearSeparatedStems();
-
-setTransportVisible(
-    false
-);
-
-resized();
-
-juce::MessageManager::callAsync(
-    [this]
-    {
-        if (isShowing())
-            grabKeyboardFocus();
+        if (licenseManager.registerInstallation())
+        {
+            std::cout
+                << "OFFOR: Installation registered successfully."
+                << std::endl;
+        }
+        else
+        {
+            std::cout
+                << "OFFOR: Installation registration failed."
+                << std::endl;
+        }
     }
 );
 
-}
 
+    // ==========================================================
+    // KEYBOARD FOCUS
+    // ==========================================================
+
+    setWantsKeyboardFocus(true);
+    setMouseClickGrabsKeyboardFocus(true);
+
+    addKeyListener(this);
+
+    // ==========================================================
+    // PLAYBACK TIMER
+    // ==========================================================
+
+    playbackTimer =
+        std::make_unique<PlaybackTimer>(*this);
+
+
+    // ==========================================================
+    // SEPARATION ANIMATION TIMER
+    // ==========================================================
+
+    progressAnimationTimer =
+        std::make_unique<ProgressAnimationTimer>(*this);
+
+    // ==========================================================
+    // Audio format
+    // ==========================================================
+
+    formatManager.registerBasicFormats();
+
+    // ==========================================================
+    // Audio device
+    // ==========================================================
+
+    auto error =
+        audioDeviceManager.initialise(
+            0,
+            2,
+            nullptr,
+            true
+        );
+
+    if (error.isNotEmpty())
+    {
+        setStatus(
+            "Audio device error: " + error
+        );
+    }
+
+    audioSourcePlayer.setSource(
+        &mixerSource
+    );
+
+    audioDeviceManager.addAudioCallback(
+        &audioSourcePlayer
+    );
+
+    // ==========================================================
+    // Window
+    // ==========================================================
+
+    setSize(
+        620,
+        400
+    );
+
+    setWantsKeyboardFocus(true);
+
+    // ==========================================================
+    // OFFOR BRANDING
+    // ==========================================================
+
+    offorLogo =
+        juce::ImageCache::getFromMemory(
+            BinaryData::OfforStemSplitter_png,
+            BinaryData::OfforStemSplitter_pngSize
+        );
+
+    headerTitleLabel.setText(
+        "OFFOR STEM SPLITTER",
+        juce::dontSendNotification
+    );
+
+    headerTitleLabel.setFont(
+        juce::Font(
+            juce::FontOptions()
+                .withHeight(18.0f)
+                .withStyle("Bold")
+        )
+    );
+
+    headerTitleLabel.setColour(
+        juce::Label::textColourId,
+        juce::Colour(0xffd7d7d7)
+    );
+
+    headerTitleLabel.setJustificationType(
+        juce::Justification::centredLeft
+    );
+
+    addAndMakeVisible(
+        headerTitleLabel
+    );
+
+    // ==========================================================
+    // CANCEL BUTTON
+    // ==========================================================
+
+    addAndMakeVisible(
+        cancelButton
+    );
+
+    cancelButton.setVisible(
+        false
+    );
+
+    cancelButton.onClick = [this]
+    {
+        cancelSeparator();
+    };
+
+    cancelButton.setColour(
+        juce::TextButton::buttonColourId,
+        juce::Colour(0xffff7a00)
+    );
+
+    cancelButton.setColour(
+        juce::TextButton::textColourOffId,
+        juce::Colours::black
+    );
+
+    cancelButton.setColour(
+        juce::TextButton::buttonOnColourId,
+        juce::Colour(0xffff8c1a)
+    );
+
+    cancelButton.setColour(
+        juce::TextButton::textColourOnId,
+        juce::Colours::black
+    );
+
+    // ==========================================================
+    // TRANSPORT
+    // ==========================================================
+
+    addAndMakeVisible(
+        playButton
+    );
+
+    addAndMakeVisible(
+        pauseButton
+    );
+
+    addAndMakeVisible(
+        stopButton
+    );
+
+    playButton.onClick = [this]
+    {
+        startPlayback();
+    };
+
+    pauseButton.onClick = [this]
+    {
+        pausePlayback();
+    };
+
+    stopButton.onClick = [this]
+    {
+        stopPlayback();
+    };
+
+    // ==========================================================
+    // TRANSPORT BUTTON STYLE
+    // ==========================================================
+
+    auto setupTransportButton =
+        [](juce::TextButton& button)
+    {
+        button.setColour(
+            juce::TextButton::buttonColourId,
+            juce::Colour(0xff181c20)
+        );
+
+        button.setColour(
+            juce::TextButton::buttonOnColourId,
+            juce::Colour(0xffff7a00)
+        );
+
+        button.setColour(
+            juce::TextButton::textColourOffId,
+            juce::Colours::white
+        );
+
+        button.setColour(
+            juce::TextButton::textColourOnId,
+            juce::Colours::black
+        );
+    };
+
+    setupTransportButton(
+        playButton
+    );
+
+    setupTransportButton(
+        pauseButton
+    );
+
+    setupTransportButton(
+        stopButton
+    );
+
+    // ==========================================================
+    // FILE LABEL
+    // ==========================================================
+
+    fileLabel.setText(
+        "Drag an audio file here or click to browse",
+        juce::dontSendNotification
+    );
+
+    fileLabel.setJustificationType(
+        juce::Justification::centred
+    );
+
+    fileLabel.setFont(
+        juce::Font(
+            juce::FontOptions()
+                .withHeight(10.0f)
+        )
+    );
+
+    addAndMakeVisible(
+        fileLabel
+    );
+
+    // ==========================================================
+    // STATUS
+    // ==========================================================
+
+    statusLabel.setText(
+        "Ready for you...",
+        juce::dontSendNotification
+    );
+
+    statusLabel.setJustificationType(
+        juce::Justification::centred
+    );
+
+    statusLabel.setFont(
+        juce::Font(
+            juce::FontOptions()
+                .withHeight(16.0f)
+        )
+    );
+
+    statusLabel.setColour(
+        juce::Label::textColourId,
+        juce::Colour(0xff9a9a9a)
+    );
+
+    addAndMakeVisible(
+        statusLabel
+    );
+
+    // ==========================================================
+    // PROGRESS
+    // ==========================================================
+
+    progressLabel.setText(
+        "",
+        juce::dontSendNotification
+    );
+
+    progressLabel.setJustificationType(
+        juce::Justification::centred
+    );
+
+    progressLabel.setFont(
+        juce::Font(21.0f)
+    );
+
+    progressLabel.setVisible(
+        false
+    );
+
+    addAndMakeVisible(
+        progressLabel
+    );
+
+
+    // ==========================================================
+    // COMPANY
+    // ==========================================================
+
+    addAndMakeVisible(
+        companyLabel
+    );
+
+    companyLabel.setText(
+        "ONNTECH",
+        juce::dontSendNotification
+    );
+
+    companyLabel.setJustificationType(
+        juce::Justification::centredLeft
+    );
+
+    companyLabel.setColour(
+        juce::Label::textColourId,
+        juce::Colour(0xff8f8f8f)
+    );
+
+    companyLabel.setFont(
+        juce::Font(
+            juce::FontOptions()
+                .withHeight(16.0f)
+        )
+    );
+
+    // ==========================================================
+    // VERSION
+    // ==========================================================
+
+    addAndMakeVisible(
+        versionLabel
+    );
+
+    versionLabel.setText(
+        "Version " + juce::String(OfforStemSplitter::VERSION),
+        juce::dontSendNotification
+    );
+
+    versionLabel.setJustificationType(
+        juce::Justification::centredRight
+    );
+
+    versionLabel.setColour(
+        juce::Label::textColourId,
+        juce::Colour(0xff8f8f8f)
+    );
+
+    versionLabel.setFont(
+        juce::Font(
+            juce::FontOptions()
+                .withHeight(16.0f)
+        )
+    );
+
+
+    // ==========================================================
+    // SETTINGS
+    // ==========================================================
+
+    settingsButton.setButtonText(
+        "SETTINGS"
+    );
+
+    settingsButton.onClick = [this]
+    {
+        if (settingsWindow != nullptr)
+            return;
+
+        settingsComponent =
+        std::make_unique<SettingsComponent>();
+
+        // ==========================================================
+        // SETTINGS CLOSE CALLBACK
+        // ==========================================================
+
+        settingsComponent->onClose =
+            [this]
+        {
+            juce::MessageManager::callAsync(
+                [this]
+                {
+                    settingsWindow.reset();
+                }
+            );
+        };
+
+        settingsComponent->setAutoPlayEnabled(
+            autoPlayEnabled
+        );
+
+        settingsComponent->setLoopSelectionEnabled(
+            loopSelectionEnabled
+        );
+
+        settingsComponent->setNormalizeEnabled(
+            false
+        );
+
+        settingsComponent->onSettingsChanged =
+        [this](
+            bool autoPlay,
+            bool loopSelection,
+            int exportFormat,
+            bool normalize
+        )
+        {
+            autoPlayEnabled =
+                autoPlay;
+
+            loopSelectionEnabled =
+                loopSelection;
+
+            juce::ignoreUnused(
+                exportFormat,
+                normalize
+            );
+        };
+
+        settingsWindow =
+            std::make_unique<juce::DialogWindow>(
+                "Settings",
+                juce::Colour(0xff111417),
+                true
+            );
+
+        settingsWindow->setContentOwned(
+            settingsComponent.release(),
+            true
+        );
+
+        settingsWindow->centreWithSize(
+            420,
+            430
+        );
+
+        settingsWindow->setResizable(
+            false,
+            false
+        );
+
+        settingsWindow->setUsingNativeTitleBar(
+            false
+        );
+
+        settingsWindow->setVisible(
+            true
+        );
+    };
+
+    addAndMakeVisible(
+        settingsButton
+    );
+
+    // ==========================================================
+    // EXPORT BUTTONS
+    // ==========================================================
+
+    exportSelectionButton.setButtonText(
+        "EXPORT SELECTED"
+    );
+
+    exportSelectionButton.onClick = [this]
+    {
+        exportSelectedAudio();
+    };
+
+    addAndMakeVisible(
+        exportAllButton
+    );
+
+    exportAllButton.setButtonText(
+        "EXPORT ALL"
+    );
+
+    exportAllButton.onClick = [this]
+    {
+        exportAllStems();
+    };
+
+    addAndMakeVisible(
+        openOutputButton
+    );
+
+    openOutputButton.setButtonText(
+        "OPEN OUTPUT FOLDER"
+    );
+
+    openOutputButton.onClick = [this]
+    {
+        openOutputFolder();
+    };
+
+    // ==========================================================
+    // AUTO-PLAY
+    // ==========================================================
+
+    addAndMakeVisible(
+        autoPlayButton
+    );
+
+    autoPlayButton.setToggleState(
+        autoPlayEnabled,
+        juce::dontSendNotification
+    );
+
+    autoPlayButton.setColour(
+        juce::ToggleButton::textColourId,
+        juce::Colour(0xffd7d7d7)
+    );
+
+    autoPlayButton.setColour(
+        juce::ToggleButton::tickColourId,
+        juce::Colour(0xffff7a00)
+    );
+
+    autoPlayButton.onClick = [this]
+    {
+        autoPlayEnabled =
+            autoPlayButton.getToggleState();
+    };
+
+    // ==========================================================
+    // LOOP SELECTION
+    // ==========================================================
+
+    addAndMakeVisible(
+        loopSelectionButton
+    );
+
+    loopSelectionButton.setToggleState(
+        loopSelectionEnabled,
+        juce::dontSendNotification
+    );
+
+    loopSelectionButton.setColour(
+        juce::ToggleButton::textColourId,
+        juce::Colour(0xffd7d7d7)
+    );
+
+    loopSelectionButton.setColour(
+        juce::ToggleButton::tickColourId,
+        juce::Colour(0xffff7a00)
+    );
+
+    loopSelectionButton.onClick = [this]
+    {
+        loopSelectionEnabled =
+            loopSelectionButton.getToggleState();
+    };
+
+    // ==========================================================
+    // STEM LABELS
+    // ==========================================================
+
+    auto setupStemLabel =
+        [](juce::Label& label,
+        const juce::String& text)
+    {
+        label.setText(
+            text,
+            juce::dontSendNotification
+        );
+
+        label.setJustificationType(
+            juce::Justification::centredLeft
+        );
+
+        label.setColour(
+            juce::Label::textColourId,
+            juce::Colour(0xffd7d7d7)
+        );
+    };
+
+    setupStemLabel(
+        vocalsLabel,
+        "01  Vocals"
+    );
+
+    setupStemLabel(
+        drumsLabel,
+        "02  Drums"
+    );
+
+    setupStemLabel(
+        bassLabel,
+        "03  Bass"
+    );
+
+    setupStemLabel(
+        instrumentalLabel,
+        "04  Instrumental"
+    );
+
+    // ==========================================================
+    // STEM COMPONENTS
+    // ==========================================================
+
+    addAndMakeVisible(
+        vocalsTrack
+    );
+
+    addAndMakeVisible(
+        drumsTrack
+    );
+
+    addAndMakeVisible(
+        bassTrack
+    );
+
+    addAndMakeVisible(
+        instrumentalTrack
+    );
+
+    // ==========================================================
+    // CALLBACKS
+    // ==========================================================
+
+    setupSeekCallbacks();
+
+    setupStemTrackCallbacks();
+
+    // ==========================================================
+    // INITIAL STATE
+    // ==========================================================
+
+    clearSeparatedStems();
+
+    setTransportVisible(
+        false
+    );
+
+    resized();
+
+    juce::MessageManager::callAsync(
+        [this]
+        {
+            if (isShowing())
+                grabKeyboardFocus();
+        }
+    );
+
+}
 
 // ============================================================
 // CHECK LICENSE BEFORE SEPARATION
@@ -664,35 +682,53 @@ juce::MessageManager::callAsync(
 
 void MainComponent::checkLicenseBeforeSeparation()
 {
+    std::cout
+        << "=== CHECK LICENSE BEFORE SEPARATION ==="
+        << std::endl;
+
     // --------------------------------------------------------
     // Activated users can continue forever.
     // --------------------------------------------------------
 
     if (licenseManager.isActivated())
     {
+        std::cout
+            << "LICENSE: ACTIVATED"
+            << std::endl;
+
         runSeparator();
         return;
     }
 
     // --------------------------------------------------------
-    // Still within free allowance.
+    // Ask the server whether this installation
+    // is still allowed to use the free version.
     // --------------------------------------------------------
 
-    if (licenseManager.hasFreeUsesRemaining())
+    std::cout
+        << "LICENSE: CHECKING SERVER USAGE..."
+        << std::endl;
+
+    if (licenseManager.checkUsage())
     {
-        licenseManager.incrementUsage();
+        std::cout
+            << "LICENSE: SERVER ALLOWED"
+            << std::endl;
 
         runSeparator();
         return;
     }
 
     // --------------------------------------------------------
-    // 60 free uses have been exhausted.
+    // Free uses exhausted.
     // --------------------------------------------------------
+
+    std::cout
+        << "LICENSE: SERVER DENIED"
+        << std::endl;
 
     showLicenseDialog();
 }
-
 
 // ============================================================
 // SHOW LICENSE DIALOG

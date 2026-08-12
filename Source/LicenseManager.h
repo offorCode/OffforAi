@@ -6,11 +6,27 @@ class LicenseManager
 {
 public:
 
+    // ========================================================
+    // CONSTRUCTOR
+    // ========================================================
+
     LicenseManager();
+
+
+    // ========================================================
+    // LOCAL LICENSE STATE
+    // ========================================================
 
     bool isActivated() const;
 
     bool activate(const juce::String& licenseKey);
+
+    juce::String getStoredLicense() const;
+
+
+    // ========================================================
+    // USAGE
+    // ========================================================
 
     int getUsageCount() const;
 
@@ -18,15 +34,74 @@ public:
 
     bool hasFreeUsesRemaining() const;
 
-    juce::String getStoredLicense() const;
+
+    // ========================================================
+    // INSTALLATION ID
+    // ========================================================
+
+    juce::String getInstallationId() const;
+
+
+    // ========================================================
+    // SERVER
+    // ========================================================
+
+    bool registerInstallation();
+
+    bool checkUsage();
+
 
 private:
 
-    static constexpr int FREE_USES = 60;
+    // ========================================================
+    // SETTINGS
+    // ========================================================
+
+    static constexpr int FREE_USES = 3;
+
+    static constexpr const char* PRODUCT_NAME =
+        "OfforStemSplitter";
+
+    static constexpr const char* PRODUCT_VERSION =
+        "1.1.0";
+
+    static constexpr const char* LICENSE_SERVER =
+        "https://chezchris.onrender.com";
+
+
+    // ========================================================
+    // JUCE PROPERTIES
+    // ========================================================
 
     juce::ApplicationProperties properties;
 
+
     juce::PropertiesFile* getProperties();
 
-    JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(LicenseManager)
+
+    // ========================================================
+    // INSTALLATION ID
+    // ========================================================
+
+    juce::String createInstallationId();
+
+
+    // ========================================================
+    // SERVER RESPONSE
+    // ========================================================
+
+    bool lastServerAllowed = false;
+
+    int lastServerFreeUses = 0;
+
+    int lastServerFreeUsesLimit = FREE_USES;
+
+
+    // ========================================================
+    // NON-COPYABLE
+    // ========================================================
+
+    JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(
+        LicenseManager
+    );
 };
