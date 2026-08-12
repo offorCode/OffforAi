@@ -10,6 +10,7 @@
 #include "StemTrackComponent.h"
 #include "SettingsComponent.h"
 #include "LicenseManager.h"
+#include "UpdateChecker.h"
 
 
 // ============================================================
@@ -110,6 +111,19 @@ private:
     void showLicenseDialog();
 
     std::unique_ptr<juce::DialogWindow> licenseWindow;
+
+
+    // ========================================================
+    // UPDATE CHECKER
+    // ========================================================
+
+    UpdateChecker updateChecker;
+
+    void checkForUpdates();
+
+    void handleUpdateResult(
+        const UpdateChecker::UpdateInfo& info
+    );
 
 
 

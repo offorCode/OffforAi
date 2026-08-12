@@ -50,6 +50,8 @@ target_sources(OfforStemSplitter
         Source/SettingsComponent.cpp
         Source/LicenseManager.cpp
 
+        Source/UpdateChecker.cpp
+
         Source/OfforStemSplitter.rc
 )
 

@@ -1981,29 +1981,7 @@ void MainComponent::showSeparatedStems()
             "04_Instrumental.wav"
         );
 
-    std::cout << "VOCALS: "
-          << vocalsFile.getFullPathName()
-          << " EXISTS="
-          << vocalsFile.existsAsFile()
-          << std::endl;
-
-    std::cout << "DRUMS: "
-            << drumsFile.getFullPathName()
-            << " EXISTS="
-            << drumsFile.existsAsFile()
-            << std::endl;
-
-    std::cout << "BASS: "
-            << bassFile.getFullPathName()
-            << " EXISTS="
-            << bassFile.existsAsFile()
-            << std::endl;
-
-    std::cout << "INSTRUMENTAL: "
-            << instrumentalFile.getFullPathName()
-            << " EXISTS="
-            << instrumentalFile.existsAsFile()
-            << std::endl;
+    
     // ==========================================================
     // Verify
     // ==========================================================
@@ -2685,6 +2663,150 @@ void MainComponent::setupStemTrackCallbacks()
 
         exportSelectedAudio();
     };
+}
+
+// ==============================================================
+// CHECK FOR UPDATES
+// ==============================================================
+
+void MainComponent::checkForUpdates()
+{
+    // ==========================================================
+    // CURRENT APPLICATION VERSION
+    // ==========================================================
+
+    const juce::String currentVersion =
+        "1.0.0";
+
+    // ==========================================================
+    // START UPDATE CHECK
+    // ==========================================================
+
+    updateChecker.checkForUpdate(
+        currentVersion,
+        [this](const UpdateChecker::UpdateInfo& info)
+        {
+            handleUpdateResult(info);
+        }
+    );
+}
+
+
+// ==============================================================
+// HANDLE UPDATE RESULT
+// ==============================================================
+
+void MainComponent::handleUpdateResult(
+    const UpdateChecker::UpdateInfo& info
+)
+{
+    // ==========================================================
+    // NO UPDATE
+    // ==========================================================
+
+    if (!info.updateAvailable)
+    {
+        setStatus(
+            "Offor Stem Splitter is up to date."
+        );
+
+        return;
+    }
+
+    // ==========================================================
+    // BUILD MESSAGE
+    // ==========================================================
+
+    juce::String message;
+
+    message << "A new version of Offor Stem Splitter is available.\n\n";
+
+    message << "Current version: "
+            << info.currentVersion
+            << "\n";
+
+    message << "Latest version: "
+            << info.latestVersion
+            << "\n\n";
+
+    // ==========================================================
+    // RELEASE NOTES
+    // ==========================================================
+
+    if (!info.releaseNotes.isEmpty())
+    {
+        message << "What's new:\n";
+
+        for (const auto& note : info.releaseNotes)
+        {
+            message << "• "
+                    << note
+                    << "\n";
+        }
+
+        message << "\n";
+    }
+
+    // ==========================================================
+    // DOWNLOAD URL
+    // ==========================================================
+
+    const auto downloadUrl =
+        info.downloadUrl;
+
+    // ==========================================================
+    // CREATE ALERT
+    // ==========================================================
+
+    auto* alert =
+        new juce::AlertWindow(
+            "Update Available",
+            message,
+            juce::MessageBoxIconType::InfoIcon
+        );
+
+  // ==========================================================
+    // BUTTONS
+    // ==========================================================
+
+    alert->addButton(
+        "Download",
+        1,
+        juce::KeyPress(
+            juce::KeyPress::returnKey
+        ),
+        juce::KeyPress()
+    );
+
+    alert->addButton(
+        "Later",
+        0,
+        juce::KeyPress(
+            juce::KeyPress::escapeKey
+        ),
+        juce::KeyPress()
+    );
+
+    // ==========================================================
+    // CALLBACK
+    // ==========================================================
+
+    alert->enterModalState(
+        true,
+        juce::ModalCallbackFunction::create(
+            [downloadUrl](int result)
+            {
+                if (result == 1
+                    && downloadUrl.isNotEmpty())
+                {
+                    juce::URL(
+                        downloadUrl
+                    ).launchInDefaultBrowser();
+                }
+            }
+        ),
+        true
+    );
 }
 
 // ==============================================================

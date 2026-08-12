@@ -39,9 +39,6 @@ LicenseManager::LicenseManager()
             settings->saveIfNeeded();
         }
 
-        std::cout << "OFFOR Installation ID: "
-          << installationId.toStdString()
-          << std::endl;
     }
 }
 
@@ -198,13 +195,12 @@ void LicenseManager::incrementUsage()
 
 bool LicenseManager::registerInstallation()
 {
-    std::cout << "=== REGISTER INSTALLATION CALLED ==="
-          << std::endl;
-    const auto installationId = getInstallationId();
+    // --------------------------------------------------------
+    // Get permanent installation ID
+    // --------------------------------------------------------
 
-    std::cout << "Registering installation ID: "
-          << installationId.toStdString()
-          << std::endl;
+    const auto installationId =
+        getInstallationId();
 
     if (installationId.isEmpty())
         return false;
@@ -213,7 +209,8 @@ bool LicenseManager::registerInstallation()
     // Build JSON request
     // --------------------------------------------------------
 
-    auto requestObject = std::make_unique<juce::DynamicObject>();
+    auto requestObject =
+        std::make_unique<juce::DynamicObject>();
 
     requestObject->setProperty(
         "installationId",
@@ -230,10 +227,14 @@ bool LicenseManager::registerInstallation()
         PRODUCT_VERSION
     );
 
-    juce::var requestVar(requestObject.release());
+    juce::var requestVar(
+        requestObject.release()
+    );
 
     const auto requestJson =
-        juce::JSON::toString(requestVar);
+        juce::JSON::toString(
+            requestVar
+        );
 
     // --------------------------------------------------------
     // Create POST URL
@@ -244,7 +245,9 @@ bool LicenseManager::registerInstallation()
         + "/api/v1/license/register"
     );
 
-    url = url.withPOSTData(requestJson);
+    url = url.withPOSTData(
+        requestJson
+    );
 
     int statusCode = 0;
 
@@ -259,15 +262,28 @@ bool LicenseManager::registerInstallation()
         )
         .withConnectionTimeoutMs(10000)
         .withNumRedirectsToFollow(5)
-        .withStatusCode(&statusCode);
+        .withStatusCode(
+            &statusCode
+        );
 
-    auto stream = url.createInputStream(options);
+    auto stream =
+        url.createInputStream(
+            options
+        );
 
     if (stream == nullptr)
     {
-        DBG("License registration failed: no connection.");
+        DBG(
+            "License registration failed: "
+            "no connection."
+        );
+
         return false;
     }
+
+    // --------------------------------------------------------
+    // Read response
+    // --------------------------------------------------------
 
     const auto response =
         stream->readEntireStreamAsString();
@@ -277,7 +293,12 @@ bool LicenseManager::registerInstallation()
         + response
     );
 
-    if (statusCode < 200 || statusCode >= 300)
+    // --------------------------------------------------------
+    // Check HTTP status
+    // --------------------------------------------------------
+
+    if (statusCode < 200
+        || statusCode >= 300)
     {
         DBG(
             "License registration HTTP status: "
@@ -292,7 +313,9 @@ bool LicenseManager::registerInstallation()
     // --------------------------------------------------------
 
     const auto json =
-        juce::JSON::parse(response);
+        juce::JSON::parse(
+            response
+        );
 
     if (!json.isObject())
         return false;
@@ -305,7 +328,9 @@ bool LicenseManager::registerInstallation()
 
     const bool success =
         static_cast<bool>(
-            object->getProperty("success")
+            object->getProperty(
+                "success"
+            )
         );
 
     return success;
@@ -665,10 +690,6 @@ bool LicenseManager::activate(
     );
 
     settings->saveIfNeeded();
-
-    std::cout
-        << "LICENSE: ACTIVATED SUCCESSFULLY"
-        << std::endl;
 
     return true;
 }
