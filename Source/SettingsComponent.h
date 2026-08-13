@@ -56,12 +56,22 @@ public:
         bool enabled
     );
 
+    // ========================================================
+    // LICENSE
+    // ========================================================
+
+    void setLicenseActivated(
+        bool activated
+    );
+
 
     // ========================================================
     // CALLBACKS
     // ========================================================
 
     std::function<void()> onClose;
+
+    std::function<void()> onActivateLicense;
 
     std::function<void(
         bool autoPlay,
@@ -115,6 +125,18 @@ private:
     juce::TextButton closeButton {
         "CLOSE"
     };
+
+    // ========================================================
+    // LICENSE
+    // ========================================================
+
+    juce::Label licenseLabel;
+
+    juce::TextButton activateButton {
+        "ACTIVATE"
+    };
+
+    
 
 
     // ========================================================

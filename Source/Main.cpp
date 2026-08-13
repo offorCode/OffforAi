@@ -54,7 +54,7 @@ public:
         )
         {
 
-            setUsingNativeTitleBar(true);
+            setUsingNativeTitleBar(false);
 
             setContentOwned(
                 new MainComponent(),

@@ -140,6 +140,44 @@ SettingsComponent::SettingsComponent()
         closeButton
     );
 
+    // ========================================================
+    // LICENSE
+    // ========================================================
+
+    licenseLabel.setText(
+        "LICENSE",
+        juce::dontSendNotification
+    );
+
+    licenseLabel.setFont(
+        juce::Font(15.0f)
+    );
+
+    licenseLabel.setColour(
+        juce::Label::textColourId,
+        juce::Colours::white
+    );
+
+    addAndMakeVisible(
+        licenseLabel
+    );
+
+
+    activateButton.setButtonText(
+        "ACTIVATE"
+    );
+
+    activateButton.onClick = [this]
+    {
+        if (onActivateLicense)
+        {
+            onActivateLicense();
+        }
+    };
+
+    addAndMakeVisible(
+        activateButton
+    );
 
     // ======================================================
     // SETTINGS CALLBACKS
@@ -269,15 +307,33 @@ void SettingsComponent::resized()
         area.removeFromTop(32)
     );
 
-    area.removeFromTop(20);
+    area.removeFromTop(22);
+
+
+    // ======================================================
+    // LICENSE
+    // ======================================================
+
+    licenseLabel.setBounds(
+        area.removeFromTop(24)
+    );
+
+    activateButton.setBounds(
+        area.removeFromTop(42)
+    );
+
+    area.removeFromTop(24);
 
 
     // ======================================================
     // CLOSE
     // ======================================================
 
+    auto closeArea =
+        area.removeFromBottom(52);
+
     closeButton.setBounds(
-        area.removeFromBottom(36)
+        closeArea.reduced(0, 4)
     );
 }
 
@@ -359,4 +415,36 @@ void SettingsComponent::setNormalizeEnabled(
         enabled,
         juce::dontSendNotification
     );
+}
+
+// ============================================================
+// LICENSE STATE
+// ============================================================
+
+void SettingsComponent::setLicenseActivated(
+    bool activated
+)
+{
+    if (activated)
+    {
+        activateButton.setButtonText(
+            "Activated"
+        );
+
+        activateButton.setEnabled(
+            false
+        );
+    }
+    else
+    {
+        activateButton.setButtonText(
+            "ACTIVATE"
+        );
+
+        activateButton.setEnabled(
+            true
+        );
+    }
+
+    activateButton.repaint();
 }

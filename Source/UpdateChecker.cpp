@@ -50,7 +50,7 @@ juce::String UpdateChecker::compareVersions(
         latestParts.add("0");
 
     // --------------------------------------------------------
-    // Compare major / minor / patch
+    // Compare
     // --------------------------------------------------------
 
     for (int i = 0; i < 3; ++i)
@@ -81,11 +81,12 @@ void UpdateChecker::checkForUpdate(
     Callback callback)
 {
     // ========================================================
-    // YOUR UPDATE MANIFEST URL
+    // UPDATE MANIFEST
     // ========================================================
 
     const juce::URL updateUrl(
-        "https://chezchris.onrender.com/api/v1/stem-splitter/offor-stem-splitter/update"
+        "https://chezchris.onrender.com/api/v1/"
+        "stem-splitter/offor-stem-splitter/update"
     );
 
     // ========================================================
@@ -99,15 +100,13 @@ void UpdateChecker::checkForUpdate(
         info.currentVersion =
             currentVersion;
 
-        if (callback)
-        {
-            juce::MessageManager::callAsync(
-                [callback, info]()
-                {
+        juce::MessageManager::callAsync(
+            [callback, info]()
+            {
+                if (callback)
                     callback(info);
-                }
-            );
-        }
+            }
+        );
 
         return;
     }
@@ -117,10 +116,7 @@ void UpdateChecker::checkForUpdate(
     // ========================================================
 
     juce::Thread::launch(
-        [this,
-         updateUrl,
-         currentVersion,
-         callback]()
+        [this, updateUrl, currentVersion, callback]()
         {
             UpdateInfo info;
 
@@ -128,17 +124,21 @@ void UpdateChecker::checkForUpdate(
                 currentVersion;
 
             // =================================================
-            // CONNECT
+            // CREATE INPUT STREAM
             // =================================================
 
+            int statusCode = 0;
+
+            auto options =
+                juce::URL::InputStreamOptions(
+                    juce::URL::ParameterHandling::inAddress
+                )
+                .withConnectionTimeoutMs(15000)
+                .withNumRedirectsToFollow(5)
+                .withStatusCode(&statusCode);
+
             std::unique_ptr<juce::InputStream> stream =
-                updateUrl.createInputStream(
-                    juce::URL::InputStreamOptions(
-                        juce::URL::ParameterHandling::inAddress
-                    )
-                    .withConnectionTimeoutMs(10000)
-                    .withNumRedirectsToFollow(5)
-                );
+                updateUrl.createInputStream(options);
 
             // =================================================
             // CONNECTION FAILED
@@ -164,19 +164,6 @@ void UpdateChecker::checkForUpdate(
             const juce::String jsonText =
                 stream->readEntireStreamAsString();
 
-            if (jsonText.isEmpty())
-            {
-                juce::MessageManager::callAsync(
-                    [callback, info]()
-                    {
-                        if (callback)
-                            callback(info);
-                    }
-                );
-
-                return;
-            }
-
             // =================================================
             // PARSE JSON
             // =================================================
@@ -184,88 +171,66 @@ void UpdateChecker::checkForUpdate(
             const auto json =
                 juce::JSON::parse(jsonText);
 
-            if (!json.isObject())
+            if (json.isObject())
             {
-                juce::MessageManager::callAsync(
-                    [callback, info]()
-                    {
-                        if (callback)
-                            callback(info);
-                    }
-                );
-
-                return;
-            }
-
-            auto* object =
-                json.getDynamicObject();
-
-            if (object == nullptr)
-            {
-                juce::MessageManager::callAsync(
-                    [callback, info]()
-                    {
-                        if (callback)
-                            callback(info);
-                    }
-                );
-
-                return;
-            }
-
-            // =================================================
-            // UPDATE INFORMATION
-            // =================================================
-
-            info.latestVersion =
-                object->getProperty(
-                    "latestVersion"
-                ).toString();
-
-            info.minimumVersion =
-                object->getProperty(
-                    "minimumVersion"
-                ).toString();
-
-            info.downloadUrl =
-                object->getProperty(
-                    "downloadUrl"
-                ).toString();
-
-            // =================================================
-            // RELEASE NOTES
-            // =================================================
-
-            const auto releaseNotesValue =
-                object->getProperty(
-                    "releaseNotes"
-                );
-
-            if (auto* notesArray =
-                    releaseNotesValue.getArray())
-            {
-                for (const auto& note : *notesArray)
+                if (auto* object =
+                        json.getDynamicObject())
                 {
-                    info.releaseNotes.add(
-                        note.toString()
-                    );
+                    // =========================================
+                    // UPDATE INFORMATION
+                    // =========================================
+
+                    info.latestVersion =
+                        object->getProperty(
+                            "latestVersion"
+                        ).toString();
+
+                    info.minimumVersion =
+                        object->getProperty(
+                            "minimumVersion"
+                        ).toString();
+
+                    info.downloadUrl =
+                        object->getProperty(
+                            "downloadUrl"
+                        ).toString();
+
+                    // =========================================
+                    // RELEASE NOTES
+                    // =========================================
+
+                    const auto releaseNotesValue =
+                        object->getProperty(
+                            "releaseNotes"
+                        );
+
+                    if (auto* notesArray =
+                            releaseNotesValue.getArray())
+                    {
+                        for (const auto& note : *notesArray)
+                        {
+                            info.releaseNotes.add(
+                                note.toString()
+                            );
+                        }
+                    }
+
+                    // =========================================
+                    // COMPARE VERSIONS
+                    // =========================================
+
+                    if (info.latestVersion.isNotEmpty())
+                    {
+                        const auto comparison =
+                            compareVersions(
+                                currentVersion,
+                                info.latestVersion
+                            );
+
+                        info.updateAvailable =
+                            comparison == "newer";
+                    }
                 }
-            }
-
-            // =================================================
-            // COMPARE VERSIONS
-            // =================================================
-
-            if (info.latestVersion.isNotEmpty())
-            {
-                const auto comparison =
-                    compareVersions(
-                        currentVersion,
-                        info.latestVersion
-                    );
-
-                info.updateAvailable =
-                    comparison == "newer";
             }
 
             // =================================================

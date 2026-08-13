@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.22)
 
-project(OfforStemSplitter VERSION 0.1.0)
+project(OfforStemSplitter VERSION 1.0.0)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -62,7 +62,7 @@ target_sources(OfforStemSplitter
 target_compile_definitions(OfforStemSplitter
     PRIVATE
         JUCE_WEB_BROWSER=0
-        JUCE_USE_CURL=0
+        JUCE_USE_CURL=1
 )
 
 # ==========================================================

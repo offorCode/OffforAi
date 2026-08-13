@@ -5,6 +5,43 @@
 
 #include <iostream>
 
+
+// ============================================================
+// CLOSEABLE DIALOG WINDOW
+// ============================================================
+
+class CloseableDialogWindow
+    : public juce::DialogWindow
+{
+public:
+
+    CloseableDialogWindow(
+        const juce::String& title,
+        juce::Colour backgroundColour,
+        std::function<void()> closeCallback
+    )
+        : juce::DialogWindow(
+            title,
+            backgroundColour,
+            true
+        ),
+          onClose(std::move(closeCallback))
+    {
+    }
+
+    void closeButtonPressed() override
+    {
+        if (onClose)
+            onClose();
+    }
+
+private:
+
+    std::function<void()> onClose;
+};
+
+
+
 // ==============================================================
 // CONSTRUCTOR
 // ==============================================================
@@ -19,23 +56,21 @@ MainComponent::MainComponent()
     loadOrCreateInstallationId();
 
     juce::Timer::callAfterDelay(
-    100,
-    [this]()
-    {
-        if (licenseManager.registerInstallation())
+        100,
+        [this]()
         {
-            std::cout
-                << "OFFOR: Installation registered successfully."
-                << std::endl;
+            licenseManager.registerInstallation();
         }
-        else
+    );
+
+
+    juce::Timer::callAfterDelay(
+        2000,
+        [this]()
         {
-            std::cout
-                << "OFFOR: Installation registration failed."
-                << std::endl;
+            checkForUpdates();
         }
-    }
-);
+    );
 
 
     // ==========================================================
@@ -405,6 +440,15 @@ MainComponent::MainComponent()
         std::make_unique<SettingsComponent>();
 
         // ==========================================================
+        // LICENSE STATE
+        // ==========================================================
+
+
+        settingsComponent->setLicenseActivated(
+            licenseManager.isActivated()
+        );
+
+        // ==========================================================
         // SETTINGS CLOSE CALLBACK
         // ==========================================================
 
@@ -417,6 +461,17 @@ MainComponent::MainComponent()
                     settingsWindow.reset();
                 }
             );
+        };
+
+
+        // ==========================================================
+        // LICENSE ACTIVATION CALLBACK
+        // ==========================================================
+
+        settingsComponent->onActivateLicense =
+        [this]
+        {
+            showLicenseDialog();
         };
 
         settingsComponent->setAutoPlayEnabled(
@@ -452,10 +507,14 @@ MainComponent::MainComponent()
         };
 
         settingsWindow =
-            std::make_unique<juce::DialogWindow>(
+            std::make_unique<CloseableDialogWindow>(
                 "Settings",
                 juce::Colour(0xff111417),
-                true
+
+                [this]
+                {
+                    settingsWindow.reset();
+                }
             );
 
         settingsWindow->setContentOwned(
@@ -465,7 +524,7 @@ MainComponent::MainComponent()
 
         settingsWindow->centreWithSize(
             420,
-            430
+            500
         );
 
         settingsWindow->setResizable(
@@ -682,9 +741,6 @@ MainComponent::MainComponent()
 
 void MainComponent::checkLicenseBeforeSeparation()
 {
-    std::cout
-        << "=== CHECK LICENSE BEFORE SEPARATION ==="
-        << std::endl;
 
     // --------------------------------------------------------
     // Activated users can continue forever.
@@ -692,9 +748,6 @@ void MainComponent::checkLicenseBeforeSeparation()
 
     if (licenseManager.isActivated())
     {
-        std::cout
-            << "LICENSE: ACTIVATED"
-            << std::endl;
 
         runSeparator();
         return;
@@ -705,15 +758,11 @@ void MainComponent::checkLicenseBeforeSeparation()
     // is still allowed to use the free version.
     // --------------------------------------------------------
 
-    std::cout
-        << "LICENSE: CHECKING SERVER USAGE..."
-        << std::endl;
+    
 
     if (licenseManager.checkUsage())
     {
-        std::cout
-            << "LICENSE: SERVER ALLOWED"
-            << std::endl;
+        
 
         runSeparator();
         return;
@@ -723,9 +772,7 @@ void MainComponent::checkLicenseBeforeSeparation()
     // Free uses exhausted.
     // --------------------------------------------------------
 
-    std::cout
-        << "LICENSE: SERVER DENIED"
-        << std::endl;
+    
 
     showLicenseDialog();
 }
@@ -736,6 +783,9 @@ void MainComponent::checkLicenseBeforeSeparation()
 
 void MainComponent::showLicenseDialog()
 {
+    if (licenseWindow != nullptr)
+        return;
+
     auto* content = new juce::Component();
 
     content->setSize(
@@ -861,6 +911,11 @@ void MainComponent::showLicenseDialog()
             if (licenseWindow != nullptr)
                 licenseWindow->closeButtonPressed();
 
+            if (settingsComponent != nullptr)
+            {
+                settingsComponent->setLicenseActivated(true);
+            }
+
             juce::AlertWindow::showMessageBoxAsync(
                 juce::AlertWindow::InfoIcon,
                 "License Activated",
@@ -881,10 +936,14 @@ void MainComponent::showLicenseDialog()
 
 
     licenseWindow =
-    std::make_unique<juce::DialogWindow>(
+        std::make_unique<CloseableDialogWindow>(
             "Offor Stem Splitter License",
             juce::Colours::black,
-            true
+
+            [this]
+            {
+                licenseWindow.reset();
+            }
         );
 
     licenseWindow->setContentOwned(
@@ -894,7 +953,7 @@ void MainComponent::showLicenseDialog()
 
     licenseWindow->centreWithSize(
         420,
-        240
+        320
     );
 
     licenseWindow->setResizable(
@@ -2013,8 +2072,7 @@ void MainComponent::showSeparatedStems()
 
     if (!loadStemAudio())
     {
-        std::cout << "=== loadStemAudio() FAILED ===" << std::endl;
-
+        
         setStatus(
             "ERROR: Could not load stem audio"
         );
@@ -2669,18 +2727,14 @@ void MainComponent::setupStemTrackCallbacks()
 // CHECK FOR UPDATES
 // ==============================================================
 
+// ============================================================
+// CHECK FOR UPDATES
+// ============================================================
+
 void MainComponent::checkForUpdates()
 {
-    // ==========================================================
-    // CURRENT APPLICATION VERSION
-    // ==========================================================
-
     const juce::String currentVersion =
-        "1.0.0";
-
-    // ==========================================================
-    // START UPDATE CHECK
-    // ==========================================================
+        juce::String(OfforStemSplitter::VERSION);
 
     updateChecker.checkForUpdate(
         currentVersion,
@@ -3287,10 +3341,7 @@ void MainComponent::parseSeparatorProgress(
                 outputFolder =
                     juce::File(path);
 
-                std::cout
-                    << "OFFOR OUTPUT FOLDER = "
-                    << outputFolder.getFullPathName()
-                    << std::endl;
+                
             }
 
             continue;
@@ -3302,10 +3353,7 @@ void MainComponent::parseSeparatorProgress(
 
         if (trimmed == "OFFOR_STEMS_READY")
         {
-            std::cout
-                << "=== OFFOR STEMS READY ==="
-                << std::endl;
-
+           
             continue;
         }
     }
@@ -4500,13 +4548,7 @@ void MainComponent::SeparatorOutputThread::run()
 
             const juce::String output(buffer);
 
-            std::cout
-                << "OUTPUT THREAD RECEIVED "
-                << bytesRead
-                << " BYTES: ["
-                << output
-                << "]"
-                << std::endl;
+            
 
             {
                 const juce::ScopedLock lock(

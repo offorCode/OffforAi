@@ -1,6 +1,7 @@
 #pragma once
 
 #include <JuceHeader.h>
+#include "AppConfig.h"
 
 class LicenseManager
 {
@@ -63,7 +64,7 @@ private:
         "OfforStemSplitter";
 
     static constexpr const char* PRODUCT_VERSION =
-        "1.1.0";
+        OfforStemSplitter::VERSION;
 
     static constexpr const char* LICENSE_SERVER =
         "https://chezchris.onrender.com";
