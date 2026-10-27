@@ -42,12 +42,94 @@ private:
 
 
 
+void OfforLookAndFeel::drawButtonBackground(
+    juce::Graphics& g, juce::Button& button, const juce::Colour& background,
+    bool isHighlighted, bool isDown)
+{
+    auto bounds = button.getLocalBounds().toFloat().reduced(1.0f);
+    auto fill = button.getToggleState()
+        ? juce::Colour(0xffff7a00)
+        : background;
+    if (isDown) fill = fill.darker(0.12f);
+    else if (isHighlighted) fill = fill.brighter(0.12f);
+    if (!button.isEnabled()) fill = fill.withAlpha(0.45f);
+
+    g.setColour(fill);
+    g.fillRoundedRectangle(bounds, 8.0f);
+    g.setColour(juce::Colour(0xff343b41).withAlpha(button.isEnabled() ? 1.0f : 0.5f));
+    g.drawRoundedRectangle(bounds, 8.0f, 1.0f);
+}
+
+void OfforLookAndFeel::drawButtonText(
+    juce::Graphics& g, juce::TextButton& button, bool, bool isDown)
+{
+    const auto textColour = button.getToggleState()
+        ? juce::Colours::black
+        : button.findColour(juce::TextButton::textColourOffId);
+    g.setColour(button.isEnabled() ? textColour : textColour.withAlpha(0.45f));
+    g.setFont(juce::Font(juce::FontOptions().withHeight(12.0f).withStyle("Bold")));
+    g.drawFittedText(button.getButtonText(), button.getLocalBounds().reduced(8, isDown ? 2 : 0),
+                     juce::Justification::centred, 1);
+}
+
+void OfforLookAndFeel::drawToggleButton(
+    juce::Graphics& g, juce::ToggleButton& button, bool isHighlighted, bool isDown)
+{
+    auto bounds = button.getLocalBounds();
+    const int boxSize = 18;
+    auto box = juce::Rectangle<float>(static_cast<float>(bounds.getX()),
+                                      static_cast<float>(bounds.getCentreY() - boxSize / 2),
+                                      static_cast<float>(boxSize), static_cast<float>(boxSize));
+    g.setColour(button.getToggleState() ? juce::Colour(0xffff7a00) : juce::Colour(0xff20262b));
+    g.fillRoundedRectangle(box, 4.0f);
+    g.setColour(juce::Colour(0xff485057));
+    g.drawRoundedRectangle(box, 4.0f, 1.0f);
+    if (button.getToggleState())
+    {
+        juce::Path tick;
+        tick.startNewSubPath(box.getX() + 4.0f, box.getCentreY());
+        tick.lineTo(box.getX() + 7.0f, box.getBottom() - 4.0f);
+        tick.lineTo(box.getRight() - 3.0f, box.getY() + 4.0f);
+        g.setColour(juce::Colours::black);
+        g.strokePath(tick, juce::PathStrokeType(2.0f));
+    }
+    if (isHighlighted || isDown)
+        g.setColour(juce::Colours::white.withAlpha(0.08f));
+    else
+        g.setColour(button.findColour(juce::ToggleButton::textColourId));
+    g.setFont(juce::Font(juce::FontOptions().withHeight(12.0f)));
+    g.drawFittedText(button.getButtonText(), bounds.withTrimmedLeft(boxSize + 9),
+                     juce::Justification::centredLeft, 2);
+}
+
+void OfforLookAndFeel::drawComboBox(
+    juce::Graphics& g, int width, int height, bool isButtonDown,
+    int buttonX, int buttonY, int buttonW, int buttonH, juce::ComboBox& box)
+{
+    juce::ignoreUnused(buttonX, buttonY, buttonW, buttonH);
+    auto bounds = juce::Rectangle<float>(0.0f, 0.0f, static_cast<float>(width),
+                                         static_cast<float>(height)).reduced(1.0f);
+    g.setColour(isButtonDown ? juce::Colour(0xff292f34) : juce::Colour(0xff191e22));
+    g.fillRoundedRectangle(bounds, 7.0f);
+    g.setColour(juce::Colour(0xff343b41));
+    g.drawRoundedRectangle(bounds, 7.0f, 1.0f);
+    juce::Path arrow;
+    const float x = static_cast<float>(width - 18);
+    const float y = static_cast<float>(height / 2 - 2);
+    arrow.startNewSubPath(x - 4.0f, y);
+    arrow.lineTo(x, y + 4.0f);
+    arrow.lineTo(x + 4.0f, y);
+    g.setColour(box.isEnabled() ? juce::Colour(0xffff8a35) : juce::Colours::grey);
+    g.strokePath(arrow, juce::PathStrokeType(2.0f));
+}
+
 // ==============================================================
 // CONSTRUCTOR
 // ==============================================================
 
 MainComponent::MainComponent()
 {
+    setLookAndFeel(&offorLookAndFeel);
 
     // ======================================================
     // LICENSE / INSTALLATION ID
@@ -55,20 +137,29 @@ MainComponent::MainComponent()
 
     loadOrCreateInstallationId();
 
-    juce::Timer::callAfterDelay(
-        100,
-        [this]()
-        {
-            licenseManager.registerInstallation();
-        }
-    );
+    juce::PropertiesFile::Options userOptions;
+    userOptions.applicationName = "OfforStemSplitterPreferences";
+    userOptions.filenameSuffix = ".settings";
+    userOptions.folderName = "OFFOR";
+    userOptions.storageFormat = juce::PropertiesFile::storeAsXML;
+    userPreferences.setStorageParameters(userOptions);
+    if (auto* prefs = userPreferences.getUserSettings())
+    {
+        autoPlayEnabled = prefs->getBoolValue("autoPlay", false);
+        loopSelectionEnabled = prefs->getBoolValue("loopSelection", false);
+        normalizeExportsEnabled = prefs->getBoolValue("normalizeExports", false);
+        sixStemModeEnabled = prefs->getBoolValue("sixStemMode", true);
+        exportFormatId = prefs->getIntValue("exportFormat", 1);
+        masterVolume = juce::jlimit(0.0, 1.0, prefs->getDoubleValue("masterVolume", 1.0));
+    }
 
-
+    juce::Component::SafePointer<MainComponent> safeThis(this);
     juce::Timer::callAfterDelay(
         2000,
-        [this]()
+        [safeThis]()
         {
-            checkForUpdates();
+            if (safeThis != nullptr)
+                safeThis->checkForUpdates();
         }
     );
 
@@ -134,10 +225,7 @@ MainComponent::MainComponent()
     // Window
     // ==========================================================
 
-    setSize(
-        620,
-        400
-    );
+    setSize(1200, 700);
 
     setWantsKeyboardFocus(true);
 
@@ -285,6 +373,36 @@ MainComponent::MainComponent()
         stopButton
     );
 
+    playButton.setTooltip("Play from the playhead; a highlighted region limits playback.");
+    pauseButton.setTooltip("Pause and keep the current playhead position.");
+    stopButton.setTooltip("Stop and return to the highlighted region start, or the beginning.");
+
+    masterVolumeSlider.setSliderStyle(juce::Slider::LinearHorizontal);
+    masterVolumeSlider.setTextBoxStyle(juce::Slider::NoTextBox, false, 0, 0);
+    masterVolumeSlider.setRange(0.0, 1.0, 0.01);
+    masterVolumeSlider.setValue(masterVolume, juce::dontSendNotification);
+    masterVolumeSlider.setColour(juce::Slider::trackColourId, juce::Colour(0xff343b41));
+    masterVolumeSlider.setColour(juce::Slider::thumbColourId, juce::Colour(0xffff7a00));
+    masterVolumeSlider.setTooltip("Master playback volume for all stems.");
+    masterVolumeSlider.onValueChange = [this]
+    {
+        masterVolume = masterVolumeSlider.getValue();
+        audioSourcePlayer.setGain(static_cast<float>(masterVolume));
+        masterVolumeLabel.setText("MASTER  " + juce::String(juce::roundToInt(masterVolume * 100.0)) + "%", juce::dontSendNotification);
+        if (auto* prefs = userPreferences.getUserSettings())
+        {
+            prefs->setValue("masterVolume", masterVolume);
+            prefs->saveIfNeeded();
+        }
+    };
+    masterVolumeLabel.setText("MASTER  " + juce::String(juce::roundToInt(masterVolume * 100.0)) + "%", juce::dontSendNotification);
+    masterVolumeLabel.setFont(juce::Font(juce::FontOptions().withHeight(10.0f).withStyle("Bold")));
+    masterVolumeLabel.setColour(juce::Label::textColourId, juce::Colour(0xffc7cbd0));
+    masterVolumeLabel.setJustificationType(juce::Justification::centred);
+    addAndMakeVisible(masterVolumeLabel);
+    addAndMakeVisible(masterVolumeSlider);
+    audioSourcePlayer.setGain(static_cast<float>(masterVolume));
+
     // ==========================================================
     // FILE LABEL
     // ==========================================================
@@ -424,128 +542,39 @@ MainComponent::MainComponent()
 
 
     // ==========================================================
-    // SETTINGS
-    // ==========================================================
-
-    settingsButton.setButtonText(
-        "SETTINGS"
-    );
-
-    settingsButton.onClick = [this]
-    {
-        if (settingsWindow != nullptr)
-            return;
-
-        settingsComponent =
-        std::make_unique<SettingsComponent>();
-
-        // ==========================================================
-        // LICENSE STATE
-        // ==========================================================
-
-
-        settingsComponent->setLicenseActivated(
-            licenseManager.isActivated()
-        );
-
-        // ==========================================================
-        // SETTINGS CLOSE CALLBACK
-        // ==========================================================
-
-        settingsComponent->onClose =
-            [this]
+    // SETTINGS SIDEBAR
+    settingsComponent = std::make_unique<SettingsComponent>();
+    settingsComponent->setEmbeddedMode(true);
+    settingsComponent->setLicenseActivated(licenseManager.isActivated());
+    settingsComponent->setAutoPlayEnabled(autoPlayEnabled);
+    settingsComponent->setLoopSelectionEnabled(loopSelectionEnabled);
+    settingsComponent->setNormalizeEnabled(normalizeExportsEnabled);
+    settingsComponent->setExportFormat(exportFormatId);
+    settingsComponent->setSixStemModeEnabled(sixStemModeEnabled);
+    settingsComponent->onActivateLicense = [this] { showLicenseDialog(); };
+    settingsComponent->onSettingsChanged =
+        [this](bool autoPlay, bool loopSelection, int exportFormat,
+               bool normalize, bool sixStemMode)
         {
-            juce::MessageManager::callAsync(
-                [this]
-                {
-                    settingsWindow.reset();
-                }
-            );
+            autoPlayEnabled = autoPlay;
+            loopSelectionEnabled = loopSelection;
+            exportFormatId = exportFormat;
+            normalizeExportsEnabled = normalize;
+            sixStemModeEnabled = sixStemMode;
+            if (auto* prefs = userPreferences.getUserSettings())
+            {
+                prefs->setValue("autoPlay", autoPlayEnabled);
+                prefs->setValue("loopSelection", loopSelectionEnabled);
+                prefs->setValue("normalizeExports", normalizeExportsEnabled);
+                prefs->setValue("sixStemMode", sixStemModeEnabled);
+                prefs->setValue("exportFormat", exportFormatId);
+                prefs->saveIfNeeded();
+            }
         };
-
-
-        // ==========================================================
-        // LICENSE ACTIVATION CALLBACK
-        // ==========================================================
-
-        settingsComponent->onActivateLicense =
-        [this]
-        {
-            showLicenseDialog();
-        };
-
-        settingsComponent->setAutoPlayEnabled(
-            autoPlayEnabled
-        );
-
-        settingsComponent->setLoopSelectionEnabled(
-            loopSelectionEnabled
-        );
-
-        settingsComponent->setNormalizeEnabled(
-            false
-        );
-
-        settingsComponent->onSettingsChanged =
-        [this](
-            bool autoPlay,
-            bool loopSelection,
-            int exportFormat,
-            bool normalize
-        )
-        {
-            autoPlayEnabled =
-                autoPlay;
-
-            loopSelectionEnabled =
-                loopSelection;
-
-            juce::ignoreUnused(
-                exportFormat,
-                normalize
-            );
-        };
-
-        settingsWindow =
-            std::make_unique<CloseableDialogWindow>(
-                "Settings",
-                juce::Colour(0xff111417),
-
-                [this]
-                {
-                    settingsWindow.reset();
-                }
-            );
-
-        settingsWindow->setContentOwned(
-            settingsComponent.release(),
-            true
-        );
-
-        settingsWindow->centreWithSize(
-            420,
-            500
-        );
-
-        settingsWindow->setResizable(
-            false,
-            false
-        );
-
-        settingsWindow->setUsingNativeTitleBar(
-            false
-        );
-
-        settingsWindow->setVisible(
-            true
-        );
-    };
-
-    addAndMakeVisible(
-        settingsButton
-    );
+    addAndMakeVisible(*settingsComponent);
 
     // ==========================================================
+    
     // EXPORT BUTTONS
     // ==========================================================
 
@@ -582,64 +611,6 @@ MainComponent::MainComponent()
     openOutputButton.onClick = [this]
     {
         openOutputFolder();
-    };
-
-    // ==========================================================
-    // AUTO-PLAY
-    // ==========================================================
-
-    addAndMakeVisible(
-        autoPlayButton
-    );
-
-    autoPlayButton.setToggleState(
-        autoPlayEnabled,
-        juce::dontSendNotification
-    );
-
-    autoPlayButton.setColour(
-        juce::ToggleButton::textColourId,
-        juce::Colour(0xffd7d7d7)
-    );
-
-    autoPlayButton.setColour(
-        juce::ToggleButton::tickColourId,
-        juce::Colour(0xffff7a00)
-    );
-
-    autoPlayButton.onClick = [this]
-    {
-        autoPlayEnabled =
-            autoPlayButton.getToggleState();
-    };
-
-    // ==========================================================
-    // LOOP SELECTION
-    // ==========================================================
-
-    addAndMakeVisible(
-        loopSelectionButton
-    );
-
-    loopSelectionButton.setToggleState(
-        loopSelectionEnabled,
-        juce::dontSendNotification
-    );
-
-    loopSelectionButton.setColour(
-        juce::ToggleButton::textColourId,
-        juce::Colour(0xffd7d7d7)
-    );
-
-    loopSelectionButton.setColour(
-        juce::ToggleButton::tickColourId,
-        juce::Colour(0xffff7a00)
-    );
-
-    loopSelectionButton.onClick = [this]
-    {
-        loopSelectionEnabled =
-            loopSelectionButton.getToggleState();
     };
 
     // ==========================================================
@@ -682,8 +653,10 @@ MainComponent::MainComponent()
 
     setupStemLabel(
         instrumentalLabel,
-        "04  Instrumental"
+        "04  Other"
     );
+    setupStemLabel(guitarLabel, "05  Guitar");
+    setupStemLabel(pianoLabel, "06  Piano");
 
     // ==========================================================
     // STEM COMPONENTS
@@ -704,6 +677,8 @@ MainComponent::MainComponent()
     addAndMakeVisible(
         instrumentalTrack
     );
+    addAndMakeVisible(guitarTrack);
+    addAndMakeVisible(pianoTrack);
 
     // ==========================================================
     // CALLBACKS
@@ -741,39 +716,34 @@ MainComponent::MainComponent()
 
 void MainComponent::checkLicenseBeforeSeparation()
 {
-
     // --------------------------------------------------------
-    // Activated users can continue forever.
+    // 1. ACTIVATED USERS
+    //
+    // Paid users can always use the application.
+    // No internet connection is required.
     // --------------------------------------------------------
 
     if (licenseManager.isActivated())
     {
-
         runSeparator();
         return;
     }
 
     // --------------------------------------------------------
-    // Ask the server whether this installation
-    // is still allowed to use the free version.
+    // 2. LOCAL FREE USES
+    //
+    // Allow the user to continue offline while local
+    // free uses are still available.
     // --------------------------------------------------------
 
-    
-
-    if (licenseManager.checkUsage())
+    if (licenseManager.hasFreeUsesRemaining())
     {
-        
-
         runSeparator();
         return;
     }
 
     // --------------------------------------------------------
-    // Free uses exhausted.
-    // --------------------------------------------------------
-
-    
-
+    // No local free uses remain; display activation options.
     showLicenseDialog();
 }
 
@@ -899,6 +869,23 @@ void MainComponent::showLicenseDialog()
     );
 
 
+    auto* buyButton =
+        new juce::TextButton(
+            "BUY LICENSE"
+        );
+
+    content->addAndMakeVisible(
+        buyButton
+    );
+
+    buyButton->setBounds(
+        140,
+        230,
+        140,
+        35
+    );
+
+
     activateButton->onClick =
         [this, licenseEditor]()
     {
@@ -932,6 +919,15 @@ void MainComponent::showLicenseDialog()
                 "The license code is invalid."
             );
         }
+    };
+
+
+    buyButton->onClick =
+        []
+    {
+        juce::URL(
+            "https://ko-fi.com/s/e91086f9f4"
+        ).launchInDefaultBrowser();
     };
 
 
@@ -973,13 +969,21 @@ MainComponent::~MainComponent()
 {
     removeKeyListener(this);
 
+    // ==========================================================
+    // STOP TIMERS
+    // ==========================================================
+
     if (playbackTimer)
-    playbackTimer->stopTimer();
+        playbackTimer->stopTimer();
 
     if (progressAnimationTimer)
-    progressAnimationTimer->stopTimer();
+        progressAnimationTimer->stopTimer();
 
     stopTimer();
+
+    // ==========================================================
+    // STOP PLAYBACK
+    // ==========================================================
 
     stopPlayback();
 
@@ -993,15 +997,33 @@ MainComponent::~MainComponent()
         &audioSourcePlayer
     );
 
+    // ==========================================================
+    // STOP SEPARATOR PROCESS
+    // ==========================================================
+
     if (separatorProcess != nullptr)
     {
         if (separatorProcess->isRunning())
             separatorProcess->kill();
     }
 
-    stopSeparatorOutputThread();
+    // ==========================================================
+    // STOP SEPARATOR OUTPUT THREAD
+    // ==========================================================
 
-    separatorProcess.reset();
+    stopSeparatorOutputThread();
+    setLookAndFeel(nullptr);
+
+    // ==========================================================
+    // DESTROY PROCESS
+    //
+    // Only destroy it after the output thread has stopped.
+    // ==========================================================
+
+    if (separatorOutputThread == nullptr)
+    {
+        separatorProcess.reset();
+    }
 }
 
 
@@ -1012,630 +1034,104 @@ MainComponent::~MainComponent()
 
 void MainComponent::paint(juce::Graphics& g)
 {
+    const bool showLargeDropZone = !vocalsTrack.isVisible();
+    g.fillAll(juce::Colour(0xff080a0c));
 
+    auto panel = [](juce::Graphics& graphics, juce::Rectangle<int> bounds)
+    {
+        graphics.setColour(juce::Colour(0xff111417));
+        graphics.fillRoundedRectangle(bounds.toFloat(), 12.0f);
+        graphics.setColour(juce::Colour(0xff2a3035));
+        graphics.drawRoundedRectangle(bounds.toFloat().reduced(0.5f), 12.0f, 1.0f);
+    };
+    panel(g, settingsPanelBounds);
+    panel(g, workspacePanelBounds);
 
-    const auto bounds = getLocalBounds();
-    const bool showLargeDropZone =
-    !vocalsTrack.isVisible();
-
-    // ======================================================
-    // MAIN BACKGROUND
-    // ======================================================
-
-    g.fillAll(
-        juce::Colour(0xff080a0c)
-    );
-
-    // ======================================================
-    // CONTENT AREA
-    // ======================================================
-
-    auto content =
-        bounds.reduced(24);
-
-    // ======================================================
-    // HEADER BACKGROUND
-    // ======================================================
-
-    auto header =
-        content.removeFromTop(46);
-
-    g.setColour(
-        juce::Colour(0xff0e1114)
-    );
-
-    g.fillRoundedRectangle(
-        header.toFloat(),
-        8.0f
-    );
-
-    g.setColour(
-        juce::Colour(0xff252b30)
-    );
-
-    g.drawRoundedRectangle(
-        header.toFloat().reduced(0.5f),
-        8.0f,
-        1.0f
-    );
-
-    // ======================================================
-    // OFFOR LOGO
-    // ======================================================
+    g.setColour(juce::Colour(0xff191e22));
+    g.fillRoundedRectangle(workspaceHeaderBounds.toFloat(), 9.0f);
+    g.setColour(juce::Colour(0xffff7a00).withAlpha(0.75f));
+    g.fillRoundedRectangle(workspaceHeaderBounds.getX() + 12.0f,
+                           workspaceHeaderBounds.getBottom() - 2.0f,
+                           44.0f, 2.0f, 1.0f);
 
     if (!offorLogo.isNull())
     {
-        auto logoArea =
-            header
-                .removeFromLeft(42)
-                .reduced(9, 8);
-
-        g.drawImageWithin(
-            offorLogo,
-            logoArea.getX(),
-            logoArea.getY(),
-            logoArea.getWidth(),
-            logoArea.getHeight(),
-            juce::RectanglePlacement::centred
-                | juce::RectanglePlacement::onlyReduceInSize,
-            false
-        );
+        const auto logoBounds = workspaceHeaderBounds.withX(workspaceHeaderBounds.getX() + 12)
+            .withWidth(36).reduced(4, 6);
+        g.drawImageWithin(offorLogo, logoBounds.getX(), logoBounds.getY(),
+                          logoBounds.getWidth(), logoBounds.getHeight(),
+                          juce::RectanglePlacement::centred |
+                          juce::RectanglePlacement::onlyReduceInSize);
     }
 
-    // ======================================================
-    // HEADER DIVIDER
-    // ======================================================
-
-    g.setColour(
-        juce::Colour(0xff252a2e)
-    );
-
-    g.fillRect(
-        header.getX(),
-        header.getY() + 10,
-        1,
-        header.getHeight() - 20
-    );
-
-    // ======================================================
-    // DROP ZONE
-    // ======================================================
-
-    auto dropZone =
-        dropZoneBounds.toFloat();
-
-    // Shadow / depth
-    g.setColour(
-        juce::Colours::black.withAlpha(0.25f)
-    );
-
-    g.fillRoundedRectangle(
-        dropZone.translated(0.0f, 2.0f),
-        10.0f
-    );
-
-    // Main panel
-    g.setColour(
-        juce::Colour(0xff101316)
-    );
-
-    g.fillRoundedRectangle(
-        dropZone,
-        10.0f
-    );
-
-    // ======================================================
-    // DROP ZONE BORDER
-    // ======================================================
-
-    const auto orange =
-        juce::Colour(0xffff6b22);
-
-    g.setColour(
-        isDragOver
-            ? orange
-            : orange.withAlpha(0.42f)
-    );
-
-    g.drawRoundedRectangle(
-        dropZone.reduced(0.5f),
-        10.0f,
-        isDragOver ? 2.0f : 1.0f
-    );
-
-    // ======================================================
-    // DRAG OVER HIGHLIGHT
-    // ======================================================
-
-    if (isDragOver)
-    {
-        g.setColour(
-            orange.withAlpha(0.08f)
-        );
-
-        g.fillRoundedRectangle(
-            dropZone.reduced(2.0f),
-            8.0f
-        );
-    }
-
-    // ======================================================
-    // DROP ZONE CONTENT
-    // ======================================================
-
+    auto drop = dropZoneBounds.toFloat();
+    g.setColour(juce::Colour(0xff0c0f11));
+    g.fillRoundedRectangle(drop, 10.0f);
+    g.setColour((isDragOver ? juce::Colour(0xffff7a00) : juce::Colour(0xff3a4147))
+                    .withAlpha(isDragOver ? 1.0f : 0.9f));
+    g.drawRoundedRectangle(drop.reduced(0.5f), 10.0f, isDragOver ? 2.0f : 1.0f);
     if (separationRunning)
     {
-        // ==================================================
-        // PROCESSING VISUALIZATION
-        // ==================================================
+        constexpr int barCount = 43;
+        constexpr float barWidth = 5.0f;
+        constexpr float gap = 7.0f;
+        const float visualizerWidth = barCount * (barWidth + gap) - gap;
+        const float startX = drop.getCentreX() - visualizerWidth * 0.5f;
+        const float centerY = drop.getY() + drop.getHeight() * 0.48f;
+        const float animationPhase = static_cast<float>(progressAnimationFrame) * 0.18f;
 
-        const int centreX =
-            dropZoneBounds.getCentreX();
-
-        const int centreY =
-            dropZoneBounds.getCentreY();
-
-        // ----------------------------------------------
-        // Animated outer circle
-        // ----------------------------------------------
-
-        const float pulse =
-            0.72f
-            + 0.18f
-            * std::sin(
-                static_cast<float>(progressAnimationFrame)
-                * 0.12f
-            );
-
-        g.setColour(
-            orange.withAlpha(
-                0.08f * pulse
-            )
-        );
-
-        g.fillEllipse(
-            static_cast<float>(centreX - 32),
-            static_cast<float>(centreY - 32),
-            64.0f,
-            64.0f
-        );
-
-        g.setColour(
-            orange.withAlpha(
-                0.65f * pulse
-            )
-        );
-
-        g.drawEllipse(
-            static_cast<float>(centreX - 23),
-            static_cast<float>(centreY - 23),
-            46.0f,
-            46.0f,
-            1.2f
-        );
-
-        // ----------------------------------------------
-        // Animated audio bars
-        // ----------------------------------------------
-
-        constexpr int numBars = 15;
-        constexpr int barWidth = 4;
-        constexpr int barGap = 4;
-        constexpr int totalWidth =
-            (numBars * barWidth)
-            + ((numBars - 1) * barGap);
-
-        const int startX =
-            centreX
-            - (totalWidth / 2);
-
-        const int baseY =
-            centreY + 18;
-
-        for (int i = 0; i < numBars; ++i)
+        for (int i = 0; i < barCount; ++i)
         {
-            const float phase =
-                static_cast<float>(i) * 0.55f
-                + static_cast<float>(
-                    progressAnimationFrame
-                ) * 0.10f;
-
-            const float wave =
-                0.5f
-                + 0.5f
-                * std::sin(phase);
-
-            const float barHeight =
-                8.0f
-                + wave * 32.0f;
-
-            const int x =
-                startX
-                + i * (barWidth + barGap);
-
-            g.setColour(
-                orange.withAlpha(
-                    0.35f
-                    + 0.50f * wave
-                )
-            );
-
-            g.fillRoundedRectangle(
-                static_cast<float>(x),
-                static_cast<float>(
-                    baseY - barHeight
-                ),
-                static_cast<float>(barWidth),
-                barHeight,
-                2.0f
-            );
+            const float position = static_cast<float>(i) / static_cast<float>(barCount - 1);
+            const float envelope = 0.25f + 0.75f * std::sin(position * juce::MathConstants<float>::pi);
+            const float wave = 0.22f + 0.78f * std::abs(std::sin(animationPhase - static_cast<float>(i) * 0.31f));
+            const float height = 7.0f + 43.0f * envelope * wave;
+            const float x = startX + static_cast<float>(i) * (barWidth + gap);
+            const auto bar = juce::Rectangle<float>(x, centerY - height * 0.5f, barWidth, height);
+            g.setColour(juce::Colour(0xffff7a00).withAlpha(0.42f + 0.5f * wave));
+            g.fillRoundedRectangle(bar, barWidth * 0.5f);
         }
 
-        // ==================================================
-        // PROCESSING TITLE
-        // ==================================================
-
-        auto processingText =
-            dropZoneBounds
-                .reduced(25);
-
-        processingText.setY(
-            centreY - 64
-        );
-
-        processingText.setHeight(
-            22
-        );
-
-        g.setColour(
-            orange.withAlpha(0.92f)
-        );
-
-        g.setFont(
-            juce::Font(
-                juce::FontOptions()
-                    .withHeight(14.0f)
-                    .withStyle("Bold")
-            )
-        );
-
-        g.drawText(
-            "ANALYZING AUDIO",
-            processingText,
-            juce::Justification::centred,
-            false
-        );
-
-        // ==================================================
-        // REAL PROGRESS
-        // ==================================================
-
-        auto progressText =
-            dropZoneBounds
-                .reduced(25);
-
-        progressText.setY(
-            centreY + 38
-        );
-
-        progressText.setHeight(
-            22
-        );
-
-        g.setColour(
-            juce::Colours::white.withAlpha(0.75f)
-        );
-
-        g.setFont(
-            juce::Font(
-                juce::FontOptions()
-                    .withHeight(11.0f)
-            )
-        );
-
-        // g.drawText(
-        //     "Processing... "
-        //     + juce::String(
-        //         static_cast<int>(
-        //             separationProgress * 100.0
-        //         )
-        //     )
-        //     + "%",
-        //     progressText,
-        //     juce::Justification::centred,
-        //     false
-        // );
-
-        g.drawText(
-            "Processing...",
-            progressText,
-            juce::Justification::centred,
-            false
-        );
-
-        // ==================================================
-        // SECONDARY MESSAGE
-        // ==================================================
-
-        auto messageText =
-            dropZoneBounds
-                .reduced(25);
-
-        messageText.setY(
-            centreY + 58
-        );
-
-        messageText.setHeight(
-            18
-        );
-
-        g.setColour(
-            orange.withAlpha(0.42f)
-        );
-
-        g.setFont(
-            juce::Font(
-                juce::FontOptions()
-                    .withHeight(9.0f)
-            )
-        );
-
-        g.drawText(
-            "Extracting vocals • drums • bass • instrumental",
-            messageText,
-            juce::Justification::centred,
-            false
-        );
+        g.setColour(juce::Colour(0xffe3e5e7).withAlpha(0.9f));
+        g.setFont(juce::Font(juce::FontOptions().withHeight(12.0f).withStyle("Bold")));
+        g.drawText("OFFOR IS SPLITTING YOUR AUDIO", drop.withTop(centerY + 36.0f),
+                   juce::Justification::centredTop);
     }
-    else if (!selectedFile.existsAsFile())
+    else
     {
-        const int centreX =
-            dropZoneBounds.getCentreX();
-
-        const int centreY =
-            dropZoneBounds.getCentreY();
-
-        // ==================================================
-        // ORIGINAL ADD ICON
-        // ==================================================
-
-        g.setColour(
-            orange.withAlpha(0.12f)
-        );
-
-        g.fillEllipse(
-            static_cast<float>(centreX - 23),
-            static_cast<float>(centreY - 23),
-            46.0f,
-            46.0f
-        );
-
-        g.setColour(
-            orange.withAlpha(0.75f)
-        );
-
-        g.drawEllipse(
-            static_cast<float>(centreX - 23),
-            static_cast<float>(centreY - 23),
-            46.0f,
-            46.0f,
-            1.0f
-        );
-
-        // Small plus
-        g.fillRect(
-            centreX - 1,
-            centreY - 9,
-            2,
-            18
-        );
-
-        g.fillRect(
-            centreX - 9,
-            centreY - 1,
-            18,
-            2
-        );
-
-        // ==================================================
-        // MAIN TEXT
-        // ==================================================
-
-        auto textArea =
-            dropZoneBounds.reduced(25);
-
-        textArea.removeFromTop(
-            showLargeDropZone
-                ? 34
-                : 8
-        );
-
-        g.setColour(
-            orange.withAlpha(0.90f)
-        );
-
-        g.setFont(
-            juce::Font(
-                juce::FontOptions()
-                    .withHeight(
-                        showLargeDropZone
-                            ? 17.0f
-                            : 12.0f
-                    )
-                    .withStyle("Bold")
-            )
-        );
-
-        g.drawFittedText(
-            showLargeDropZone
-                ? "DROP AUDIO FILE HERE"
-                : "ADD ANOTHER AUDIO FILE",
-            textArea.removeFromTop(24),
-            juce::Justification::centred,
-            1
-        );
-
-        // ==================================================
-        // SUPPORTED FORMATS
-        // ==================================================
-
-        if (showLargeDropZone)
-        {
-            g.setColour(
-                orange.withAlpha(0.42f)
-            );
-
-            g.setFont(
-                juce::Font(
-                    juce::FontOptions()
-                        .withHeight(12.0f)
-                )
-            );
-
-            g.drawText(
-                "WAV   |   MP3   |   FLAC   |   AIFF",
-                textArea.removeFromTop(22),
-                juce::Justification::centred,
-                false
-            );
-
-            g.setColour(
-                orange.withAlpha(0.25f)
-            );
-
-            g.setFont(
-                juce::Font(
-                    juce::FontOptions()
-                        .withHeight(9.0f)
-                )
-            );
-
-            g.drawText(
-                "Click to browse files",
-                textArea.removeFromTop(18),
-                juce::Justification::centred,
-                false
-            );
-        }
+        g.setColour(juce::Colour(0xffff7a00).withAlpha(0.9f));
+        g.setFont(juce::Font(juce::FontOptions().withHeight(22.0f).withStyle("Bold")));
+        g.drawText(showLargeDropZone ? "+" : "DROP AUDIO", drop.removeFromTop(showLargeDropZone ? 78.0f : 36.0f),
+                   juce::Justification::centred);
+        g.setColour(juce::Colours::white.withAlpha(0.86f));
+        g.setFont(juce::Font(juce::FontOptions().withHeight(14.0f)));
+        g.drawText(showLargeDropZone ? "Drop an audio file here or click to browse"
+                                     : "Drop or click to choose another audio file",
+                   drop, juce::Justification::centred);
     }
 
-    // ======================================================
-    // STEMS HEADER
-    // ======================================================
+    if (separationRunning || progressLabel.isVisible())
+    {
+        g.setColour(juce::Colour(0xff252b30));
+        g.fillRoundedRectangle(progressBarBounds.toFloat(), 4.0f);
+        const float progressWidth = static_cast<float>(progressBarBounds.getWidth())
+                                    * static_cast<float>(separationProgress);
+        if (progressWidth > 0.0f)
+        {
+            g.setColour(juce::Colour(0xffff7a00));
+            g.fillRoundedRectangle(progressBarBounds.withWidth(
+                juce::jmin(progressBarBounds.getWidth(), static_cast<int>(progressWidth)))
+                .toFloat(), 4.0f);
+        }
+    }
 
     if (vocalsTrack.isVisible())
     {
-        auto stemsHeader = getLocalBounds().reduced(24);
-
-        stemsHeader.removeFromTop(
-            46 + 12 + dropZoneBounds.getHeight()
-        );
-
-        stemsHeader.removeFromTop(8);
-
-        auto headerRow = stemsHeader.removeFromTop(22);
-
-        // --------------------------------------------------
-        // LEFT TITLE
-        // --------------------------------------------------
-
-        g.setColour(orange.withAlpha(0.75f));
-
-        g.setFont(
-            juce::Font(
-                juce::FontOptions()
-                    .withHeight(10.0f)
-                    .withStyle("Bold")
-            )
-        );
-
-        g.drawText(
-            "SEPARATED STEMS",
-            headerRow.removeFromLeft(160),
-            juce::Justification::centredLeft,
-            false
-        );
-
-        // --------------------------------------------------
-        // RIGHT DURATION
-        // --------------------------------------------------
-
-        if (playbackLength > 0.0)
-        {
-            const int totalSeconds =
-                static_cast<int>(playbackLength);
-
-            const int minutes =
-                totalSeconds / 60;
-
-            const int seconds =
-                totalSeconds % 60;
-
-            const juce::String duration =
-                juce::String(minutes)
-                + ":"
-                + juce::String(seconds).paddedLeft('0', 2);
-
-            g.setColour(orange.withAlpha(0.32f));
-
-            g.setFont(
-                juce::Font(
-                    juce::FontOptions()
-                        .withHeight(9.0f)
-                )
-            );
-
-            g.drawText(
-                duration,
-                headerRow,
-                juce::Justification::centredRight,
-                false
-            );
-        }
+        g.setColour(juce::Colour(0xffaab1b7));
+        g.setFont(juce::Font(juce::FontOptions().withHeight(11.0f).withStyle("Bold")));
+        g.drawText(loadedSixStemOutput ? "SIX SEPARATED STEMS" : "SEPARATED STEMS",
+                   tracksHeaderBounds, juce::Justification::centredLeft);
     }
-    // ======================================================
-    // BOTTOM BAR
-    // ======================================================
-
-    auto bottom =
-        getLocalBounds()
-            .reduced(24)
-            .removeFromBottom(34);
-
-    g.setColour(
-        juce::Colour(0xff0e1114)
-    );
-
-    g.fillRoundedRectangle(
-        bottom.toFloat(),
-        7.0f
-    );
-
-    g.setColour(
-        juce::Colour(0xff252a2e)
-    );
-
-    g.drawRoundedRectangle(
-        bottom.toFloat().reduced(0.5f),
-        7.0f,
-        1.0f
-    );
-
-    // ======================================================
-    // TOP ACCENT LINE
-    // ======================================================
-
-    g.setColour(
-        orange.withAlpha(0.65f)
-    );
-
-    g.fillRoundedRectangle(
-        static_cast<float>(bottom.getX() + 12),
-        static_cast<float>(bottom.getY()),
-        42.0f,
-        1.0f,
-        0.5f
-    );
 }
 
 
@@ -1647,7 +1143,7 @@ void MainComponent::mouseDown(
     const juce::MouseEvent& event
 )
 {
-    if (dropZoneBounds.contains(
+    if (!separationRunning && dropZoneBounds.contains(
             event.getPosition()))
     {
         selectAudioFile();
@@ -1662,223 +1158,94 @@ void MainComponent::mouseDown(
 
 void MainComponent::resized()
 {
-    auto area =
-        getLocalBounds().reduced(24);
+    auto outer = getLocalBounds().reduced(14);
+    settingsPanelBounds = outer.removeFromLeft(286);
+    outer.removeFromLeft(12);
+    workspacePanelBounds = outer;
 
-    // ======================================================
-    // HEADER
-    // ======================================================
+    if (settingsComponent)
+        settingsComponent->setBounds(settingsPanelBounds.reduced(1));
 
-    auto header =
-        area.removeFromTop(46);
+    auto area = workspacePanelBounds.reduced(16);
+    workspaceHeaderBounds = area.removeFromTop(46);
+    auto header = workspaceHeaderBounds.reduced(8, 0);
+    header.removeFromLeft(42);
+    versionLabel.setBounds(header.removeFromRight(108));
+    companyLabel.setBounds(header.removeFromRight(84));
+    headerTitleLabel.setBounds(header.reduced(4, 0));
 
-    settingsButton.setBounds(
-        header.removeFromRight(130)
-    );
-
-    // Logo
-    auto logoArea =
-        header
-            .removeFromLeft(42)
-            .reduced(8);
-
-    juce::ignoreUnused(
-        logoArea
-    );
-
-    // Header title
-    headerTitleLabel.setBounds(
-        header.reduced(12, 0)
-    );
-
-    // ======================================================
-    // SPACE
-    // ======================================================
-
-    area.removeFromTop(12);
-
-    // ======================================================
-    // DROP ZONE
-    // ======================================================
-
-    const bool showLargeDropZone =
-        !vocalsTrack.isVisible();
-
-    const int dropZoneHeight =
-        showLargeDropZone
-            ? 180
-            : 48;
-
-    dropZoneBounds =
-        area.removeFromTop(
-            dropZoneHeight
-        );
-
-    // ======================================================
-    // FILE LABEL
-    // ======================================================
-
+    area.removeFromTop(10);
+    const bool hasStems = vocalsTrack.isVisible();
+    const int dropHeight = hasStems ? 68 : 176;
+    dropZoneBounds = area.removeFromTop(dropHeight);
     area.removeFromTop(4);
+    fileLabel.setBounds(area.removeFromTop(18));
+    area.removeFromTop(2);
+    progressLabel.setBounds(area.removeFromTop(20));
+    progressBarBounds = area.removeFromTop(7);
+    area.removeFromTop(3);
+    statusLabel.setBounds(area.removeFromTop(18));
+    area.removeFromTop(7);
 
-    fileLabel.setBounds(
-        area.removeFromTop(18)
-    );
-
-    // ======================================================
-    // PROGRESS
-    // ======================================================
-
-    progressLabel.setBounds(
-        area.removeFromTop(26)
-    );
-
-    // ======================================================
-    // STATUS
-    // ======================================================
-
-    statusLabel.setBounds(
-        area.removeFromTop(18)
-    );
-
-    // ======================================================
-    // STEMS
-    // ======================================================
-
-    if (vocalsTrack.isVisible())
-    {
-        area.removeFromTop(6);
-
-        constexpr int trackHeight = 64;
-        constexpr int gap = 4;
-
-        auto vocalsArea =
-            area.removeFromTop(
-                trackHeight
-            );
-
-        vocalsTrack.setBounds(
-            vocalsArea
-        );
-
-        vocalsLabel.setVisible(false);
-
-        area.removeFromTop(gap);
-
-        auto drumsArea =
-            area.removeFromTop(
-                trackHeight
-            );
-
-        drumsTrack.setBounds(
-            drumsArea
-        );
-
-        drumsLabel.setVisible(false);
-
-        area.removeFromTop(gap);
-
-        auto bassArea =
-            area.removeFromTop(
-                trackHeight
-            );
-
-        bassTrack.setBounds(
-            bassArea
-        );
-
-        bassLabel.setVisible(false);
-
-        area.removeFromTop(gap);
-
-        auto instrumentalArea =
-            area.removeFromTop(
-                trackHeight
-            );
-
-        instrumentalTrack.setBounds(
-            instrumentalArea
-        );
-
-        instrumentalLabel.setVisible(false);
-    }
-
-    // ======================================================
-    // TRANSPORT
-    // ======================================================
-
-    const bool showTransport =
-        vocalsTrack.isVisible();
-
-    playButton.setVisible(
-        showTransport
-    );
-
-    pauseButton.setVisible(
-        showTransport
-    );
-
-    stopButton.setVisible(
-        showTransport
-    );
+    const bool showTransport = hasStems;
+    playButton.setVisible(showTransport);
+    pauseButton.setVisible(showTransport);
+    stopButton.setVisible(showTransport);
+    masterVolumeLabel.setVisible(showTransport);
+    masterVolumeSlider.setVisible(showTransport);
+    exportSelectionButton.setVisible(showTransport);
+    exportAllButton.setVisible(showTransport);
+    openOutputButton.setVisible(showTransport);
 
     if (showTransport)
     {
-        area.removeFromTop(8);
+        auto bottom = area.removeFromBottom(80);
+        transportBounds = bottom.removeFromTop(38);
+        bottom.removeFromTop(6);
+        exportActionsBounds = bottom.removeFromTop(34);
 
-        auto transportArea =
-            area.removeFromTop(38);
+        auto controlsArea = transportBounds.reduced(3, 1);
+        auto masterArea = controlsArea.removeFromRight(220);
+        masterVolumeLabel.setBounds(masterArea.removeFromLeft(86));
+        masterVolumeSlider.setBounds(masterArea.reduced(5, 5));
+        auto transport = controlsArea.withSizeKeepingCentre(
+            juce::jmin(390, controlsArea.getWidth()), controlsArea.getHeight());
+        const int eachTransport = transport.getWidth() / 3;
+        playButton.setBounds(transport.removeFromLeft(eachTransport).reduced(3, 1));
+        pauseButton.setBounds(transport.removeFromLeft(eachTransport).reduced(3, 1));
+        stopButton.setBounds(transport.reduced(3, 1));
 
-        // Keep transport centered
-        const int transportWidth =
-            300;
+        auto actions = exportActionsBounds;
+        const int actionWidth = actions.getWidth() / 3;
+        exportSelectionButton.setBounds(actions.removeFromLeft(actionWidth).reduced(3, 1));
+        exportAllButton.setBounds(actions.removeFromLeft(actionWidth).reduced(3, 1));
+        openOutputButton.setBounds(actions.reduced(3, 1));
 
-        auto transport =
-            transportArea
-                .withSizeKeepingCentre(
-                    transportWidth,
-                    38
-                );
-
-        playButton.setBounds(
-            transport.removeFromLeft(100)
-                .reduced(3, 2)
-        );
-
-        pauseButton.setBounds(
-            transport.removeFromLeft(100)
-                .reduced(3, 2)
-        );
-
-        stopButton.setBounds(
-            transport.reduced(3, 2)
-        );
+        tracksHeaderBounds = area.removeFromTop(20);
+        area.removeFromTop(5);
+        const int count = loadedSixStemOutput ? 6 : 4;
+        const int rowHeight = juce::jlimit(52, 64, area.getHeight() / count - 4);
+        auto placeTrack = [&area, rowHeight](StemTrackComponent& track)
+        {
+            track.setBounds(area.removeFromTop(rowHeight));
+            area.removeFromTop(4);
+        };
+        placeTrack(vocalsTrack);
+        placeTrack(drumsTrack);
+        placeTrack(bassTrack);
+        if (loadedSixStemOutput)
+        {
+            placeTrack(guitarTrack);
+            placeTrack(pianoTrack);
+        }
+        placeTrack(instrumentalTrack);
     }
-
-    // ======================================================
-    // FOOTER
-    // ======================================================
-
-    auto bottom =
-        getLocalBounds()
-            .reduced(24)
-            .removeFromBottom(34);
-
-    // auto footer = bottom.reduced(8, 0);
-
-    // Company - LEFT
-    companyLabel.setBounds(
-        bottom.removeFromLeft(120)
-    );
-
-    // Version - RIGHT
-    versionLabel.setBounds(
-        bottom.removeFromRight(110)
-    );
-
-    // ======================================================
-    // OLD EXPORT UI REMOVED
-    // ======================================================
-
+    else
+    {
+        transportBounds = {};
+        exportActionsBounds = {};
+        tracksHeaderBounds = {};
+    }
 }
 
 // ==============================================================
@@ -1887,7 +1254,7 @@ void MainComponent::resized()
 
 juce::MouseCursor MainComponent::getMouseCursor()
 {
-    if (dropZoneBounds.contains(
+    if (!separationRunning && dropZoneBounds.contains(
             getMouseXYRelative()))
     {
         return juce::MouseCursor::PointingHandCursor;
@@ -1970,6 +1337,8 @@ void MainComponent::setStemUIVisible(
     instrumentalTrack.setVisible(
         shouldBeVisible
     );
+    guitarTrack.setVisible(shouldBeVisible && loadedSixStemOutput);
+    pianoTrack.setVisible(shouldBeVisible && loadedSixStemOutput);
 }
 
 // ==============================================================
@@ -1996,6 +1365,7 @@ void MainComponent::clearSeparatedStems()
     );
 
     unloadStemAudio();
+    loadedSixStemOutput = false;
 
     repaint();
 }
@@ -2006,18 +1376,107 @@ void MainComponent::clearSeparatedStems()
 
 void MainComponent::showSeparatedStems()
 {
+    std::cout
+        << "\n\n========================================\n"
+        << "        SHOW SEPARATED STEMS\n"
+        << "========================================\n"
+        << std::endl;
 
-    if (!outputFolder.isDirectory())
+    // ==========================================================
+    // BUILD THE EXPECTED OUTPUT FOLDER
+    // ==========================================================
+
+    const auto documentsDirectory =
+        juce::File::getSpecialLocation(
+            juce::File::userDocumentsDirectory
+        );
+
+    const auto exportsRoot =
+        documentsDirectory
+            .getChildFile("Offor Stem Splitter")
+            .getChildFile("Exports");
+
+    const auto expectedFolder =
+        exportsRoot.getChildFile(
+            selectedFile.getFileNameWithoutExtension()
+        );
+
+    // ==========================================================
+    // DEBUG
+    // ==========================================================
+
+    std::cout
+        << "Expected output folder:\n"
+        << expectedFolder.getFullPathName().toStdString()
+        << "\nExists: "
+        << (expectedFolder.exists() ? "YES" : "NO")
+        << "\nDirectory: "
+        << (expectedFolder.isDirectory() ? "YES" : "NO")
+        << "\n"
+        << std::endl;
+
+    // ==========================================================
+    // CHECK STEM FILES
+    // ==========================================================
+
+    const auto testVocals =
+        expectedFolder.getChildFile(
+            "01_Vocals.wav"
+        );
+
+    const auto testDrums =
+        expectedFolder.getChildFile(
+            "02_Drums.wav"
+        );
+
+    const auto testBass =
+        expectedFolder.getChildFile(
+            "03_Bass.wav"
+        );
+
+    const auto testInstrumental =
+        expectedFolder.getChildFile(
+            "04_Instrumental.wav"
+        );
+
+    std::cout
+        << "VOCALS: "
+        << (testVocals.existsAsFile() ? "YES" : "NO")
+        << "\nDRUMS: "
+        << (testDrums.existsAsFile() ? "YES" : "NO")
+        << "\nBASS: "
+        << (testBass.existsAsFile() ? "YES" : "NO")
+        << "\nINSTRUMENTAL: "
+        << (testInstrumental.existsAsFile() ? "YES" : "NO")
+        << "\n========================================\n"
+        << std::endl;
+
+    // ==========================================================
+    // OUTPUT FOLDER MUST EXIST
+    // ==========================================================
+
+    if (!expectedFolder.isDirectory())
     {
+        progressLabel.setText(
+            "",
+            juce::dontSendNotification
+        );
+
         setStatus(
-            "ERROR: Output folder not found"
+            "ERROR: Output folder was not created."
         );
 
         return;
     }
 
     // ==========================================================
-    // Locate stems
+    // USE THE VERIFIED FOLDER
+    // ==========================================================
+
+    outputFolder = expectedFolder;
+
+    // ==========================================================
+    // VERIFY ALL STEM FILES
     // ==========================================================
 
     vocalsFile =
@@ -2039,54 +1498,65 @@ void MainComponent::showSeparatedStems()
         outputFolder.getChildFile(
             "04_Instrumental.wav"
         );
-
-    
-    // ==========================================================
-    // Verify
-    // ==========================================================
+    guitarFile = outputFolder.getChildFile("05_Guitar.wav");
+    pianoFile = outputFolder.getChildFile("06_Piano.wav");
+    loadedSixStemOutput = guitarFile.existsAsFile() && pianoFile.existsAsFile();
 
     if (!vocalsFile.existsAsFile()
         || !drumsFile.existsAsFile()
         || !bassFile.existsAsFile()
-        || !instrumentalFile.existsAsFile())
+        || !instrumentalFile.existsAsFile()
+        || (sixStemModeEnabled && !loadedSixStemOutput))
     {
+        progressLabel.setText(
+            "",
+            juce::dontSendNotification
+        );
+
         setStatus(
-            "ERROR: Stem files not found"
+            "ERROR: Stem files were not created correctly."
         );
 
         return;
     }
 
     // ==========================================================
-    // Waveforms
+    // LOAD STEM FILES
     // ==========================================================
 
     vocalsTrack.setAudioFile(vocalsFile);
     drumsTrack.setAudioFile(drumsFile);
     bassTrack.setAudioFile(bassFile);
     instrumentalTrack.setAudioFile(instrumentalFile);
-
-    // ==========================================================
-    // Audio playback
-    // ==========================================================
+    if (loadedSixStemOutput)
+    {
+        guitarTrack.setAudioFile(guitarFile);
+        pianoTrack.setAudioFile(pianoFile);
+    }
 
     if (!loadStemAudio())
     {
-        
+        progressLabel.setText(
+            "",
+            juce::dontSendNotification
+        );
+
         setStatus(
-            "ERROR: Could not load stem audio"
+            "ERROR: Could not load stem audio."
         );
 
         return;
     }
 
     // ==========================================================
-    // Timeline
+    if (!licenseManager.isActivated())
+        licenseManager.incrementUsage();
+
+    // INITIAL PLAYBACK STATE
     // ==========================================================
 
     playbackLength =
         vocalsTrack.getAudioLength();
-
 
     playbackPosition = 0.0;
 
@@ -2094,16 +1564,21 @@ void MainComponent::showSeparatedStems()
     drumsTrack.setPlayheadPosition(0.0);
     bassTrack.setPlayheadPosition(0.0);
     instrumentalTrack.setPlayheadPosition(0.0);
+    guitarTrack.setPlayheadPosition(0.0);
+    pianoTrack.setPlayheadPosition(0.0);
 
     // ==========================================================
-    // Show controls
+    // SHOW STEM UI
     // ==========================================================
 
-    
     setStemUIVisible(true);
     setTransportVisible(true);
 
     updateTrackMixing();
+
+    // ==========================================================
+    // COMPLETION MESSAGE
+    // ==========================================================
 
     progressLabel.setVisible(true);
 
@@ -2112,20 +1587,20 @@ void MainComponent::showSeparatedStems()
         juce::dontSendNotification
     );
 
+    setStatus(loadedSixStemOutput
+        ? "Finished: vocals, drums, bass, other, guitar, piano (piano is experimental)."
+        : "Finished splitting the track.");
+
     // ==========================================================
-    // Expand
+    // EXPAND UI
     // ==========================================================
 
     expandForTracks();
 
     resized();
 
-    setStatus(
-        "Finished splitting the track."
-    );
-
     // ==========================================================
-    // AUTO-PLAY
+    // AUTO PLAY
     // ==========================================================
 
     if (autoPlayEnabled)
@@ -2144,6 +1619,7 @@ void MainComponent::showSeparatedStems()
 
     repaint();
 }
+
 
 // ==============================================================
 // LOAD STEM AUDIO
@@ -2172,16 +1648,21 @@ bool MainComponent::loadStemAudio()
         formatManager.createReaderFor(
             instrumentalFile
         );
+    auto* guitarReader = loadedSixStemOutput ? formatManager.createReaderFor(guitarFile) : nullptr;
+    auto* pianoReader = loadedSixStemOutput ? formatManager.createReaderFor(pianoFile) : nullptr;
 
     if (vocalsReader == nullptr
         || drumsReader == nullptr
         || bassReader == nullptr
-        || instrumentalReader == nullptr)
+        || instrumentalReader == nullptr
+        || (loadedSixStemOutput && (guitarReader == nullptr || pianoReader == nullptr)))
     {
         delete vocalsReader;
         delete drumsReader;
         delete bassReader;
         delete instrumentalReader;
+        delete guitarReader;
+        delete pianoReader;
 
         return false;
     }
@@ -2217,6 +1698,11 @@ bool MainComponent::loadStemAudio()
             instrumentalReader,
             true
         );
+    if (loadedSixStemOutput)
+    {
+        guitarReaderSource = std::make_unique<juce::AudioFormatReaderSource>(guitarReader, true);
+        pianoReaderSource = std::make_unique<juce::AudioFormatReaderSource>(pianoReader, true);
+    }
 
     vocalsTransport =
         std::make_unique<
@@ -2237,6 +1723,11 @@ bool MainComponent::loadStemAudio()
         std::make_unique<
             juce::AudioTransportSource
         >();
+    if (loadedSixStemOutput)
+    {
+        guitarTransport = std::make_unique<juce::AudioTransportSource>();
+        pianoTransport = std::make_unique<juce::AudioTransportSource>();
+    }
 
     vocalsTransport->setSource(
         vocalsReaderSource.get()
@@ -2253,6 +1744,11 @@ bool MainComponent::loadStemAudio()
     instrumentalTransport->setSource(
         instrumentalReaderSource.get()
     );
+    if (loadedSixStemOutput)
+    {
+        guitarTransport->setSource(guitarReaderSource.get());
+        pianoTransport->setSource(pianoReaderSource.get());
+    }
 
     mixerSource.addInputSource(
         vocalsTransport.get(),
@@ -2273,6 +1769,11 @@ bool MainComponent::loadStemAudio()
         instrumentalTransport.get(),
         false
     );
+    if (loadedSixStemOutput)
+    {
+        mixerSource.addInputSource(guitarTransport.get(), false);
+        mixerSource.addInputSource(pianoTransport.get(), false);
+    }
 
     return true;
 }
@@ -2287,6 +1788,8 @@ void MainComponent::unloadStemAudio()
     playbackTimer->stopTimer();
 
     isPlaying = false;
+    updateTransportButtons(false, false);
+    syncOptionalTrackPlayback(false);
 
     mixerSource.removeAllInputs();
 
@@ -2301,16 +1804,22 @@ void MainComponent::unloadStemAudio()
 
     if (instrumentalTransport)
         instrumentalTransport->stop();
+    if (guitarTransport) guitarTransport->stop();
+    if (pianoTransport) pianoTransport->stop();
 
     vocalsTransport.reset();
     drumsTransport.reset();
     bassTransport.reset();
     instrumentalTransport.reset();
+    guitarTransport.reset();
+    pianoTransport.reset();
 
     vocalsReaderSource.reset();
     drumsReaderSource.reset();
     bassReaderSource.reset();
     instrumentalReaderSource.reset();
+    guitarReaderSource.reset();
+    pianoReaderSource.reset();
 
     playbackPosition = 0.0;
     playbackLength = 0.0;
@@ -2325,7 +1834,8 @@ void MainComponent::updateTrackMixing()
     if (!vocalsTransport
         || !drumsTransport
         || !bassTransport
-        || !instrumentalTransport)
+        || !instrumentalTransport
+        || (loadedSixStemOutput && (!guitarTransport || !pianoTransport)))
     {
         return;
     }
@@ -2341,36 +1851,52 @@ void MainComponent::updateTrackMixing()
 
     const bool instrumentalSolo =
         instrumentalTrack.isSoloed();
+    const bool guitarSolo = loadedSixStemOutput && guitarTrack.isSoloed();
+    const bool pianoSolo = loadedSixStemOutput && pianoTrack.isSoloed();
 
     const bool anySolo =
         vocalsSolo
         || drumsSolo
         || bassSolo
-        || instrumentalSolo;
+        || instrumentalSolo || guitarSolo || pianoSolo;
 
-    vocalsTransport->setGain(
-        anySolo
-            ? (vocalsSolo ? 1.0f : 0.0f)
-            : (vocalsTrack.isMuted() ? 0.0f : 1.0f)
-    );
+    vocalsTransport->setGain((anySolo && !vocalsSolo) || (!anySolo && vocalsTrack.isMuted())
+        ? 0.0f : vocalsTrack.getVolume());
 
-    drumsTransport->setGain(
-        anySolo
-            ? (drumsSolo ? 1.0f : 0.0f)
-            : (drumsTrack.isMuted() ? 0.0f : 1.0f)
-    );
+    drumsTransport->setGain((anySolo && !drumsSolo) || (!anySolo && drumsTrack.isMuted())
+        ? 0.0f : drumsTrack.getVolume());
 
-    bassTransport->setGain(
-        anySolo
-            ? (bassSolo ? 1.0f : 0.0f)
-            : (bassTrack.isMuted() ? 0.0f : 1.0f)
-    );
+    bassTransport->setGain((anySolo && !bassSolo) || (!anySolo && bassTrack.isMuted())
+        ? 0.0f : bassTrack.getVolume());
 
-    instrumentalTransport->setGain(
-        anySolo
-            ? (instrumentalSolo ? 1.0f : 0.0f)
-            : (instrumentalTrack.isMuted() ? 0.0f : 1.0f)
-    );
+    instrumentalTransport->setGain((anySolo && !instrumentalSolo)
+        || (!anySolo && instrumentalTrack.isMuted())
+        ? 0.0f : instrumentalTrack.getVolume());
+    if (loadedSixStemOutput)
+    {
+        guitarTransport->setGain((anySolo && !guitarSolo) || (!anySolo && guitarTrack.isMuted())
+            ? 0.0f : guitarTrack.getVolume());
+        pianoTransport->setGain((anySolo && !pianoSolo) || (!anySolo && pianoTrack.isMuted())
+            ? 0.0f : pianoTrack.getVolume());
+    }
+}
+
+// ==============================================================
+void MainComponent::syncOptionalTrackPlayback(bool shouldPlay)
+{
+    if (!loadedSixStemOutput) return;
+    if (guitarTransport)
+    {
+        guitarTransport->setPosition(playbackPosition);
+        if (shouldPlay) guitarTransport->start(); else guitarTransport->stop();
+    }
+    if (pianoTransport)
+    {
+        pianoTransport->setPosition(playbackPosition);
+        if (shouldPlay) pianoTransport->start(); else pianoTransport->stop();
+    }
+    guitarTrack.setPlayheadPosition(playbackPosition);
+    pianoTrack.setPlayheadPosition(playbackPosition);
 }
 
 // ==============================================================
@@ -2428,6 +1954,7 @@ void MainComponent::setupSeekCallbacks()
                 playbackPosition
             );
 
+            syncOptionalTrackPlayback(isPlaying);
             if (isPlaying)
             {
                 if (vocalsTransport)
@@ -2469,6 +1996,8 @@ void MainComponent::setupSeekCallbacks()
     setupSeek(
         instrumentalTrack
     );
+    setupSeek(guitarTrack);
+    setupSeek(pianoTrack);
 }
 
 // ==============================================================
@@ -2595,6 +2124,51 @@ void MainComponent::setupStemTrackCallbacks()
     setupSoloSelection(drumsTrack);
     setupSoloSelection(bassTrack);
     setupSoloSelection(instrumentalTrack);
+    setupSoloSelection(guitarTrack);
+    setupSoloSelection(pianoTrack);
+
+    auto bindPlaybackRegion = [this](StemTrackComponent& track)
+    {
+        auto* selectedTrack = &track;
+        track.onSelectionChanged = [this, selectedTrack]
+        {
+            auto& track = *selectedTrack;
+            if (!track.hasSelection())
+            {
+                playbackSelectionActive = false;
+                playbackSelectionStart = playbackSelectionEnd = 0.0;
+                return;
+            }
+
+            if (isPlaying)
+                pausePlayback();
+            playbackSelectionStart = juce::jlimit(0.0, playbackLength, track.getSelectionStart());
+            playbackSelectionEnd = juce::jlimit(playbackSelectionStart, playbackLength,
+                                                 track.getSelectionEnd());
+            playbackSelectionActive = playbackSelectionEnd > playbackSelectionStart;
+            if (playbackSelectionActive)
+            {
+                playbackPosition = playbackSelectionStart;
+                if (vocalsTransport) vocalsTransport->setPosition(playbackPosition);
+                if (drumsTransport) drumsTransport->setPosition(playbackPosition);
+                if (bassTransport) bassTransport->setPosition(playbackPosition);
+                if (instrumentalTransport) instrumentalTransport->setPosition(playbackPosition);
+                syncOptionalTrackPlayback(false);
+                vocalsTrack.setPlayheadPosition(playbackPosition);
+                drumsTrack.setPlayheadPosition(playbackPosition);
+                bassTrack.setPlayheadPosition(playbackPosition);
+                instrumentalTrack.setPlayheadPosition(playbackPosition);
+                guitarTrack.setPlayheadPosition(playbackPosition);
+                pianoTrack.setPlayheadPosition(playbackPosition);
+            }
+        };
+    };
+    bindPlaybackRegion(vocalsTrack);
+    bindPlaybackRegion(drumsTrack);
+    bindPlaybackRegion(bassTrack);
+    bindPlaybackRegion(guitarTrack);
+    bindPlaybackRegion(pianoTrack);
+    bindPlaybackRegion(instrumentalTrack);
 
 
     // ==========================================================
@@ -2624,6 +2198,10 @@ void MainComponent::setupStemTrackCallbacks()
     {
         updateTrackMixing();
     };
+    guitarTrack.onMixingChanged = [this] { updateTrackMixing(); };
+    pianoTrack.onMixingChanged = [this] { updateTrackMixing(); };
+    guitarTrack.onTrackStateChanged = [this] { updateTrackMixing(); };
+    pianoTrack.onTrackStateChanged = [this] { updateTrackMixing(); };
 
 
     // ==========================================================
@@ -2721,6 +2299,17 @@ void MainComponent::setupStemTrackCallbacks()
 
         exportSelectedAudio();
     };
+
+    auto setExportRegion = [this](double start, double end, StemTrackComponent& track)
+    {
+        playbackLength = track.getAudioLength();
+        playbackSelectionStart = juce::jlimit(0.0, playbackLength, start);
+        playbackSelectionEnd = juce::jlimit(0.0, playbackLength, end);
+        playbackSelectionActive = true;
+        exportSelectedAudio();
+    };
+    guitarTrack.onExportSelectionRequested = [setExportRegion, this](double a, double b) { setExportRegion(a, b, guitarTrack); };
+    pianoTrack.onExportSelectionRequested = [setExportRegion, this](double a, double b) { setExportRegion(a, b, pianoTrack); };
 }
 
 // ==============================================================
@@ -2760,9 +2349,9 @@ void MainComponent::handleUpdateResult(
 
     if (!info.updateAvailable)
     {
-        setStatus(
-            "Offor Stem Splitter is up to date."
-        );
+        // setStatus(
+        //     "Offor Stem Splitter is up to date."
+        // );
 
         return;
     }
@@ -3059,11 +2648,17 @@ void MainComponent::startSeparatorOutputThread()
 
 void MainComponent::stopSeparatorOutputThread()
 {
-    if (separatorOutputThread)
+    if (separatorOutputThread != nullptr)
     {
-        separatorOutputThread->stopThread(
-            2000
-        );
+        const bool stopped =
+            separatorOutputThread->stopThread(5000);
+
+        if (!stopped)
+        {
+            // The thread is still running.
+            // Do NOT destroy anything it may still be using.
+            return;
+        }
 
         separatorOutputThread.reset();
     }
@@ -3075,6 +2670,22 @@ void MainComponent::stopSeparatorOutputThread()
 
 void MainComponent::runSeparator()
 {
+
+    std::cout
+    << "\n========================================\n"
+    << "        RUN SEPARATOR DEBUG\n"
+    << "========================================\n"
+    << "Selected file:\n"
+    << selectedFile.getFullPathName().toStdString()
+    << "\n"
+    << "Selected filename:\n"
+    << selectedFile.getFileName().toStdString()
+    << "\n"
+    << "Filename without extension:\n"
+    << selectedFile.getFileNameWithoutExtension().toStdString()
+    << "\n"
+    << "========================================\n"
+    << std::endl;
     
     if (!selectedFile.existsAsFile())
     {
@@ -3100,27 +2711,39 @@ void MainComponent::runSeparator()
     }
 
     // ==========================================================
+    // OFFOR STEM SPLITTER APPLICATION DIRECTORY
+    // ==========================================================
+
+    const juce::File appDirectory =
+        juce::File::getSpecialLocation(
+            juce::File::currentExecutableFile
+        ).getParentDirectory();
+
+
+    // ==========================================================
     // OFFOR AI PYTHON
     // ==========================================================
 
-    const juce::File pythonExecutable(
-        "C:\\AudioDevelopment\\OfforAudioDev"
-        "\\OfforAI\\demucs-env\\Scripts\\python.exe"
-    );
+    const juce::File pythonExecutable =
+        appDirectory
+            .getChildFile("demucs-runtime")
+            .getChildFile("python.exe");
+
 
     // ==========================================================
     // OFFOR SEPARATOR SCRIPT
     // ==========================================================
 
-    const juce::File separatorScript(
-        "C:\\AudioDevelopment\\OfforAudioDev"
-        "\\OfforAI\\demucs-engine\\separator.py"
-    );
+    const juce::File separatorScript =
+        appDirectory
+            .getChildFile("demucs-engine")
+            .getChildFile("separator.py");
+
 
     if (!pythonExecutable.existsAsFile())
     {
         setStatus(
-            "ERROR: Python environment not found."
+            "ERROR: Bundled Python runtime not found."
         );
 
         return;
@@ -3135,11 +2758,31 @@ void MainComponent::runSeparator()
         return;
     }
 
+
+    // ==========================================================
+    // EXPECTED OUTPUT FOLDER
+    // ==========================================================
+
+    const juce::File documentsDirectory =
+        juce::File::getSpecialLocation(
+            juce::File::userDocumentsDirectory
+        );
+
+    outputFolder =
+        documentsDirectory
+            .getChildFile("Offor Stem Splitter")
+            .getChildFile("Exports")
+            .getChildFile(
+                selectedFile.getFileNameWithoutExtension()
+            );
+
     // ==========================================================
     // RESET SEPARATOR STATE
     // ==========================================================
 
     separationProgress = 0.0;
+    progressLabel.setText("0%", juce::dontSendNotification);
+    progressLabel.setVisible(true);
 
     separationRunning = true;
 
@@ -3153,6 +2796,7 @@ void MainComponent::runSeparator()
     );
 
     separatorOutputBuffer.clear();
+    pendingOutputLine.clear();
 
     // ==========================================================
     // BUILD COMMAND
@@ -3176,6 +2820,13 @@ void MainComponent::runSeparator()
         selectedFile.getFullPathName()
     );
 
+    command.add(sixStemModeEnabled ? "htdemucs_6s" : "htdemucs");
+
+    separatorProgressFile = juce::File::getSpecialLocation(juce::File::tempDirectory)
+        .getChildFile("offor_stem_progress_" + juce::String(juce::Random::getSystemRandom().nextInt64()) + ".txt");
+    separatorProgressFile.deleteFile();
+    command.add(separatorProgressFile.getFullPathName());
+
     // ==========================================================
     // CREATE PROCESS
     // ==========================================================
@@ -3191,6 +2842,7 @@ void MainComponent::runSeparator()
         );
 
         separatorOutputBuffer.clear();
+        pendingOutputLine.clear();
     }
 
     // ==========================================================
@@ -3223,8 +2875,46 @@ void MainComponent::runSeparator()
             juce::ChildProcess::wantStdErr
         );
 
+    std::cout
+    << "\n========================================\n"
+    << "        PYTHON PROCESS STARTED\n"
+    << "========================================\n"
+    << "Python:\n"
+    << pythonExecutable.getFullPathName().toStdString()
+    << "\n"
+    << "Separator:\n"
+    << separatorScript.getFullPathName().toStdString()
+    << "\n"
+    << "Expected output folder:\n"
+    << outputFolder.getFullPathName().toStdString()
+    << "\n"
+    << "Process running: "
+    << (separatorProcess->isRunning() ? "YES" : "NO")
+    << "\n"
+    << "========================================\n"
+    << std::endl;
+
+    std::cout
+    << "Waiting for separator output...\n"
+    << std::endl;
+
     if (!started)
     {
+
+        std::cout
+    << "\n========== PYTHON PROCESS STARTED ==========\n"
+    << "Python:\n"
+    << pythonExecutable.getFullPathName().toStdString()
+    << "\n"
+    << "Separator:\n"
+    << separatorScript.getFullPathName().toStdString()
+    << "\n"
+    << "Expected output folder:\n"
+    << outputFolder.getFullPathName().toStdString()
+    << "\n"
+    << "============================================\n"
+    << std::endl;
+    
         separatorProcess.reset();
 
         separationRunning = false;
@@ -3248,6 +2938,8 @@ void MainComponent::runSeparator()
         return;
     }
 
+    
+
     startSeparatorOutputThread();
 
     
@@ -3266,68 +2958,113 @@ void MainComponent::parseSeparatorProgress(
     const juce::String& output
 )
 {
-    auto lines =
-        juce::StringArray::fromLines(output);
+    // ======================================================
+    // COMBINE PREVIOUS INCOMPLETE LINE WITH NEW OUTPUT
+    // ======================================================
 
-    for (const auto& line : lines)
+    juce::String combined =
+        pendingOutputLine + output;
+
+    pendingOutputLine.clear();
+
+    int searchStart = 0;
+
+    const int len =
+        combined.length();
+
+    // ======================================================
+    // PROCESS COMPLETE LINES
+    // ======================================================
+
+    while (searchStart < len)
     {
+        const int newlineIndex =
+            combined.indexOfAnyOf(
+                "\r\n",
+                searchStart,
+                false
+            );
+
+        // ==================================================
+        // INCOMPLETE LINE
+        // ==================================================
+
+        if (newlineIndex < 0)
+        {
+            pendingOutputLine =
+                combined.substring(
+                    searchStart
+                );
+
+            break;
+        }
+
+        // ==================================================
+        // EXTRACT COMPLETE LINE
+        // ==================================================
+
         auto trimmed =
-            line.trim();
+            combined.substring(
+                searchStart,
+                newlineIndex
+            ).trim();
 
         // ==================================================
         // PROGRESS
         // ==================================================
 
-        if (trimmed.startsWith(
-                "OFFOR_PROGRESS:"))
+        int progress = -1;
+        if (trimmed.startsWith("OFFOR_PROGRESS:"))
         {
-            auto progressText =
-                trimmed.fromFirstOccurrenceOf(
-                    "OFFOR_PROGRESS:",
-                    false,
-                    false
-                ).trim();
+            progress = trimmed.fromFirstOccurrenceOf("OFFOR_PROGRESS:", false, false).trim().getIntValue();
+        }
+        else
+        {
+            const int percentPosition = trimmed.lastIndexOfChar('%');
+            if (percentPosition > 0)
+            {
+                int numberStart = percentPosition - 1;
+                while (numberStart >= 0
+                       && ((trimmed[numberStart] >= '0' && trimmed[numberStart] <= '9')
+                           || trimmed[numberStart] == '.'))
+                    --numberStart;
 
-            const int progress =
-                progressText.getIntValue();
-
-            separationProgress =
-                juce::jlimit(
-                    0.0,
-                    1.0,
-                    progress / 100.0
-                );
-
-            
-
-            juce::MessageManager::callAsync(
-                [this, progress]()
+                ++numberStart;
+                if (numberStart < percentPosition)
                 {
-                    if (separationRunning)
+                    const auto numberText = trimmed.substring(numberStart, percentPosition);
+                    progress = juce::roundToInt(numberText.getDoubleValue());
+                }
+            }
+        }
+
+        if (progress >= 0)
+        {
+            progress = juce::jlimit(0, 100, progress);
+            separationProgress = progress / 100.0;
+
+            juce::Component::SafePointer<MainComponent> safeThis(this);
+            juce::MessageManager::callAsync(
+                [safeThis, progress]()
+                {
+                    if (safeThis != nullptr && safeThis->separationRunning)
                     {
-                        progressLabel.setVisible(true);
-
-                        progressLabel.setText(
-                            juce::String(progress) + "%",
-                            juce::dontSendNotification
-                        );
-
-                        progressLabel.repaint();
-
-                        repaint();
+                        safeThis->progressLabel.setVisible(true);
+                        safeThis->progressLabel.setText(juce::String(progress) + "%",
+                                                        juce::dontSendNotification);
+                        safeThis->progressLabel.repaint();
+                        safeThis->repaint();
                     }
                 }
             );
-
-            continue;
         }
 
         // ==================================================
         // OUTPUT FOLDER
         // ==================================================
 
-        if (trimmed.startsWith(
-                "OFFOR_OUTPUT:"))
+        else if (trimmed.startsWith(
+                     "OFFOR_OUTPUT:"))
         {
             const auto path =
                 trimmed.fromFirstOccurrenceOf(
@@ -3341,21 +3078,55 @@ void MainComponent::parseSeparatorProgress(
                 outputFolder =
                     juce::File(path);
 
-                
+                std::cout
+                    << "\n========== OFFOR OUTPUT ==========\n"
+                    << "Path: "
+                    << outputFolder
+                           .getFullPathName()
+                           .toStdString()
+                    << "\nIs directory: "
+                    << (
+                        outputFolder.isDirectory()
+                            ? "YES"
+                            : "NO"
+                    )
+                    << "\n==================================\n"
+                    << std::endl;
             }
-
-            continue;
         }
 
         // ==================================================
         // STEMS READY
         // ==================================================
 
-        if (trimmed == "OFFOR_STEMS_READY")
+        else if (trimmed == "OFFOR_STEMS_READY")
         {
-           
-            continue;
+            std::cout
+                << "\n========================================\n"
+                << "       OFFOR_STEMS_READY RECEIVED\n"
+                << "========================================\n"
+                << "Demucs completed successfully.\n"
+                << "========================================\n"
+                << std::endl;
         }
+
+        // ==================================================
+        // MOVE TO NEXT LINE
+        // ==================================================
+
+        int next =
+            newlineIndex + 1;
+
+        // Handle CRLF as one terminator
+        if (combined[newlineIndex] == '\r'
+            && next < len
+            && combined[next] == '\n')
+        {
+            ++next;
+        }
+
+        searchStart =
+            next;
     }
 }
 
@@ -3370,6 +3141,19 @@ void MainComponent::updateSeparationAnimation()
 
     ++progressAnimationFrame;
 
+    if (separatorProgressFile.existsAsFile())
+    {
+        const auto progressText = separatorProgressFile.loadFileAsString().trim();
+        if (progressText.isNotEmpty())
+        {
+            const int reportedProgress = juce::jlimit(0, 100, progressText.getIntValue());
+            separationProgress.store(reportedProgress / 100.0);
+        }
+    }
+
+    const int progress = juce::jlimit(0, 100,
+        juce::roundToInt(separationProgress.load() * 100.0));
+    progressLabel.setText(juce::String(progress) + "%", juce::dontSendNotification);
     repaint();
 }
 
@@ -3395,8 +3179,9 @@ void MainComponent::timerCallback()
 
     stopTimer();
 
-    // Stop output reader first so it no longer reads the process.
+    // Stop the output reader first.
     stopSeparatorOutputThread();
+    separatorProgressFile.deleteFile();
 
     // ==========================================================
     // CHECK WHETHER SEPARATION WAS CANCELLED
@@ -3409,7 +3194,157 @@ void MainComponent::timerCallback()
     }
 
     // ==========================================================
-    // SEPARATION COMPLETE
+    // GET EXIT CODE
+    // ==========================================================
+
+    const int exitCode =
+        separatorProcess->getExitCode();
+
+    std::cout
+        << "\n========================================\n"
+        << "     SEPARATOR PROCESS FINISHED\n"
+        << "========================================\n"
+        << "Exit code: "
+        << exitCode
+        << "\n"
+        << "========================================\n"
+        << std::endl;
+
+    // ==========================================================
+    // GET DOCUMENTS FOLDER
+    // ==========================================================
+
+    const juce::File documentsDirectory =
+        juce::File::getSpecialLocation(
+            juce::File::userDocumentsDirectory
+        );
+
+    // ==========================================================
+    // CREATE OFFOR LOG FOLDER
+    // ==========================================================
+
+    const juce::File logFolder =
+        documentsDirectory
+            .getChildFile("Offor Stem Splitter");
+
+    logFolder.createDirectory();
+
+    // ==========================================================
+    // DEBUG LOG FILE
+    // ==========================================================
+
+    const juce::File logFile =
+        logFolder.getChildFile(
+            "Offor-Debug-Log.txt"
+        );
+
+    // ==========================================================
+    // COPY COMPLETE PYTHON OUTPUT
+    // ==========================================================
+
+    juce::String completeOutput;
+
+    {
+        const juce::ScopedLock lock(
+            separatorOutputLock
+        );
+
+        completeOutput =
+            separatorOutputBuffer;
+    }
+
+    // ==========================================================
+    // WRITE DEBUG LOG
+    // ==========================================================
+
+    juce::String logText;
+
+    logText +=
+        "\n\n========================================\n";
+    logText +=
+        "       OFFOR STEM SPLITTER DEBUG\n";
+    logText +=
+        "========================================\n\n";
+
+    logText +=
+        "Input file:\n";
+    logText +=
+        selectedFile.getFullPathName();
+    logText +=
+        "\n\n";
+
+    logText +=
+        "Output folder:\n";
+    logText +=
+        outputFolder.getFullPathName();
+    logText +=
+        "\n\n";
+
+    logText +=
+        "----------------------------------------\n";
+    logText +=
+        "PYTHON / DEMUCS OUTPUT\n";
+    logText +=
+        "----------------------------------------\n";
+
+    logText += completeOutput;
+
+    logText +=
+        "\n\n----------------------------------------\n";
+    logText +=
+        "PROCESS RESULT\n";
+    logText +=
+        "----------------------------------------\n";
+
+    logText +=
+        "Exit code: ";
+    logText +=
+        juce::String(exitCode);
+
+    logText +=
+        "\n========================================\n";
+
+    logFile.appendText(
+        logText,
+        false,
+        false,
+        "\n"
+    );
+
+    // ==========================================================
+    // SEPARATION FAILED
+    // ==========================================================
+
+    if (exitCode != 0)
+    {
+        separationRunning = false;
+
+        if (progressAnimationTimer != nullptr)
+            progressAnimationTimer->stopTimer();
+
+        cancelButton.setVisible(false);
+
+        progressLabel.setVisible(true);
+
+        progressLabel.setText(
+            "Separation failed",
+            juce::dontSendNotification
+        );
+
+        setStatus(
+            "Offor could not separate this track. "
+            "Please check the debug log."
+        );
+
+        repaint();
+
+        separatorProcess.reset();
+
+        return;
+    }
+
+    // ==========================================================
+    // SEPARATION SUCCEEDED
     // ==========================================================
 
     separationRunning = false;
@@ -3437,7 +3372,7 @@ void MainComponent::timerCallback()
     showSeparatedStems();
 
     // ==========================================================
-    // CLEAN UP PROCESS
+    // CLEAN UP
     // ==========================================================
 
     separatorProcess.reset();
@@ -3511,7 +3446,7 @@ bool MainComponent::isInterestedInFileDrag(
     // Dragging stems to a DAW remains unaffected.
     // ==========================================================
 
-    if (vocalsTrack.isVisible())
+    if (separationRunning || vocalsTrack.isVisible())
         return false;
 
     for (const auto& path : files)
@@ -3568,7 +3503,7 @@ void MainComponent::filesDropped(
     // The user must CLICK the drop zone to choose another file.
     // ==========================================================
 
-    if (vocalsTrack.isVisible())
+    if (separationRunning || vocalsTrack.isVisible())
         return;
 
     if (files.isEmpty())
@@ -3609,13 +3544,18 @@ void MainComponent::cancelSeparator()
 
     if (separatorProcess != nullptr)
     {
-        if (separatorProcess->isRunning())
-            separatorProcess->kill();
+        separatorProcess->kill();
     }
 
+    // Stop the reader thread FIRST.
     stopSeparatorOutputThread();
 
-    separatorProcess.reset();
+    // Only destroy the process after the reader thread
+    // has completely stopped.
+    if (separatorOutputThread == nullptr)
+    {
+        separatorProcess.reset();
+    }
 
     // ==========================================================
     // RESET UI
@@ -3658,8 +3598,15 @@ void MainComponent::startPlayback()
     if (playbackLength <= 0.0)
         return;
 
-    if (playbackPosition >= playbackLength)
+    if (playbackSelectionActive)
+    {
+        if (playbackPosition < playbackSelectionStart || playbackPosition >= playbackSelectionEnd)
+            playbackPosition = playbackSelectionStart;
+    }
+    else if (playbackPosition >= playbackLength)
+    {
         playbackPosition = 0.0;
+    }
 
     vocalsTransport->setPosition(playbackPosition);
     drumsTransport->setPosition(playbackPosition);
@@ -3672,6 +3619,8 @@ void MainComponent::startPlayback()
     instrumentalTransport->start();
 
     isPlaying = true;
+    updateTransportButtons(true, false);
+    syncOptionalTrackPlayback(true);
 
     playbackTimer->startTimer(30);
 
@@ -3712,6 +3661,8 @@ void MainComponent::pausePlayback()
     // ==========================================================
 
     isPlaying = false;
+    updateTransportButtons(false, true);
+    syncOptionalTrackPlayback(false);
 
     // ==========================================================
     // Keep waveform playheads synchronized
@@ -3721,6 +3672,8 @@ void MainComponent::pausePlayback()
     drumsTrack.setPlayheadPosition(playbackPosition);
     bassTrack.setPlayheadPosition(playbackPosition);
     instrumentalTrack.setPlayheadPosition(playbackPosition);
+    guitarTrack.setPlayheadPosition(playbackPosition);
+    pianoTrack.setPlayheadPosition(playbackPosition);
 
     setStatus("Paused.");
 }
@@ -3748,10 +3701,16 @@ void MainComponent::stopPlayback()
         instrumentalTransport->stop();
 
     // ==========================================================
-    // KEEP PLAYHEAD AT CURRENT POSITION
-    // ==========================================================
+    // Rewind to the active highlighted range, or the song start.
+    playbackPosition = playbackSelectionActive ? playbackSelectionStart : 0.0;
+    if (vocalsTransport) vocalsTransport->setPosition(playbackPosition);
+    if (drumsTransport) drumsTransport->setPosition(playbackPosition);
+    if (bassTransport) bassTransport->setPosition(playbackPosition);
+    if (instrumentalTransport) instrumentalTransport->setPosition(playbackPosition);
 
     isPlaying = false;
+    updateTransportButtons(false, false);
+    syncOptionalTrackPlayback(false);
 
     vocalsTrack.setPlayheadPosition(playbackPosition);
     drumsTrack.setPlayheadPosition(playbackPosition);
@@ -3769,6 +3728,12 @@ void MainComponent::stopPlayback()
 // UPDATE PLAYBACK
 // ==============================================================
 
+void MainComponent::updateTransportButtons(bool playing, bool paused)
+{
+    playButton.setToggleState(playing, juce::dontSendNotification);
+    pauseButton.setToggleState(paused, juce::dontSendNotification);
+    stopButton.setToggleState(!playing && !paused, juce::dontSendNotification);
+}
 void MainComponent::updatePlayback()
 {
     if (!isPlaying)
@@ -3821,6 +3786,8 @@ void MainComponent::updatePlayback()
                         playbackPosition
                     );
 
+                syncOptionalTrackPlayback(true);
+
                 vocalsTrack.setPlayheadPosition(
                     playbackPosition
                 );
@@ -3836,6 +3803,8 @@ void MainComponent::updatePlayback()
                 instrumentalTrack.setPlayheadPosition(
                     playbackPosition
                 );
+            guitarTrack.setPlayheadPosition(playbackPosition);
+            pianoTrack.setPlayheadPosition(playbackPosition);
 
                 return;
             }
@@ -3864,6 +3833,8 @@ void MainComponent::updatePlayback()
             instrumentalTrack.setPlayheadPosition(
                 playbackPosition
             );
+            guitarTrack.setPlayheadPosition(playbackPosition);
+            pianoTrack.setPlayheadPosition(playbackPosition);
 
             return;
         }
@@ -3895,6 +3866,8 @@ void MainComponent::updatePlayback()
         instrumentalTrack.setPlayheadPosition(
             playbackPosition
         );
+            guitarTrack.setPlayheadPosition(playbackPosition);
+            pianoTrack.setPlayheadPosition(playbackPosition);
 
         return;
     }
@@ -3918,6 +3891,8 @@ void MainComponent::updatePlayback()
     instrumentalTrack.setPlayheadPosition(
         playbackPosition
     );
+            guitarTrack.setPlayheadPosition(playbackPosition);
+            pianoTrack.setPlayheadPosition(playbackPosition);
 }
 
 
@@ -3927,10 +3902,7 @@ void MainComponent::updatePlayback()
 
 void MainComponent::expandForTracks()
 {
-    setSize(
-        840,
-        600
-    );
+    setSize(1200, 700);
 
     resized();
 }
@@ -3942,10 +3914,7 @@ void MainComponent::expandForTracks()
 
 void MainComponent::shrinkToInputWindow()
 {
-    setSize(
-        620,
-        400
-    );
+    setSize(1200, 700);
 
     resized();
 }
@@ -4108,32 +4077,32 @@ bool MainComponent::writeAudioFile(
         rawWriter
     );
 
-    // ==========================================================
-    // READ SELECTED AUDIO
-    // ==========================================================
-
     constexpr int bufferSize = 8192;
+    juce::AudioBuffer<float> buffer(numChannels, bufferSize);
 
-    juce::AudioBuffer<float> buffer(
-        numChannels,
-        bufferSize
-    );
+    // Measure one peak across the full export range so normalization does
+    // not change gain from block to block.
+    float normalizationGain = 1.0f;
+    if (normalize)
+    {
+        float peak = 0.0f;
+        juce::int64 samplesScanned = 0;
+        while (samplesScanned < samplesToWrite)
+        {
+            const int samplesThisBlock = static_cast<int>(
+                juce::jmin<juce::int64>(bufferSize, samplesToWrite - samplesScanned));
+            if (!reader->read(&buffer, 0, samplesThisBlock,
+                              startSample + samplesScanned, true, true))
+                return false;
 
-    reader->read(
-        &buffer,
-        0,
-        static_cast<int>(
-            juce::jmin<juce::int64>(
-                samplesToWrite,
-                bufferSize
-            )
-        ),
-        startSample,
-        true,
-        true
-    );
+            for (int channel = 0; channel < numChannels; ++channel)
+                peak = juce::jmax(peak, buffer.getMagnitude(channel, 0, samplesThisBlock));
+            samplesScanned += samplesThisBlock;
+        }
 
-    
+        if (peak > 0.000001f)
+            normalizationGain = 0.999f / peak;
+    }
 
     // ==========================================================
     // WRITE SELECTED AUDIO
@@ -4162,37 +4131,8 @@ bool MainComponent::writeAudioFile(
             return false;
         }
 
-        if (normalize)
-        {
-            float peak = 0.0f;
-
-            for (int channel = 0;
-                 channel < numChannels;
-                 ++channel)
-            {
-                peak =
-                    juce::jmax(
-                        peak,
-                        buffer.getMagnitude(
-                            channel,
-                            0,
-                            samplesThisBlock
-                        )
-                    );
-            }
-
-            if (peak > 0.000001f)
-            {
-                const float gain =
-                    0.999f / peak;
-
-                buffer.applyGain(
-                    0,
-                    samplesThisBlock,
-                    gain
-                );
-            }
-        }
+        if (normalize && normalizationGain != 1.0f)
+            buffer.applyGain(0, samplesThisBlock, normalizationGain);
 
         writer->writeFromAudioSampleBuffer(
             buffer,
@@ -4268,7 +4208,12 @@ juce::String MainComponent::getExportExtension() const
 MainComponent::ExportFormat
 MainComponent::getSelectedExportFormat() const
 {
-    return ExportFormat::wav;
+    switch (exportFormatId)
+    {
+        case 2: return ExportFormat::flac;
+        case 3: return ExportFormat::aiff;
+        default: return ExportFormat::wav;
+    }
 }
 
 
@@ -4310,6 +4255,10 @@ void MainComponent::exportSelectedAudio()
         source = bassFile;
     else if (instrumentalTrack.isTrackSelected())
         source = instrumentalFile;
+    else if (guitarTrack.isTrackSelected())
+        source = guitarFile;
+    else if (pianoTrack.isTrackSelected())
+        source = pianoFile;
 
     if (!source.existsAsFile())
     {
@@ -4390,8 +4339,7 @@ void MainComponent::exportSelectedAudio()
             // WRITE SELECTED AUDIO
             // ==================================================
 
-            // Normalization is currently disabled.
-            const bool normalize = false;
+            const bool normalize = normalizeExportsEnabled;
 
             const bool success =
                 writeAudioFile(
@@ -4454,39 +4402,26 @@ void MainComponent::exportAllStems()
     if (!exportFolder.exists())
         exportFolder.createDirectory();
 
+    juce::Array<juce::File> stems;
+    stems.add(vocalsFile);
+    stems.add(drumsFile);
+    stems.add(bassFile);
+    stems.add(instrumentalFile);
+    if (guitarFile.existsAsFile() && pianoFile.existsAsFile())
+    {
+        stems.add(guitarFile);
+        stems.add(pianoFile);
+    }
+
     bool success = true;
-
-    success =
-        vocalsFile.copyFileTo(
-            exportFolder.getChildFile(
-                vocalsFile.getFileName()
-            )
-        )
-        && success;
-
-    success =
-        drumsFile.copyFileTo(
-            exportFolder.getChildFile(
-                drumsFile.getFileName()
-            )
-        )
-        && success;
-
-    success =
-        bassFile.copyFileTo(
-            exportFolder.getChildFile(
-                bassFile.getFileName()
-            )
-        )
-        && success;
-
-    success =
-        instrumentalFile.copyFileTo(
-            exportFolder.getChildFile(
-                instrumentalFile.getFileName()
-            )
-        )
-        && success;
+    const auto extension = getExportExtension();
+    for (const auto& stem : stems)
+    {
+        const auto destination = exportFolder.getChildFile(
+            stem.getFileNameWithoutExtension() + extension);
+        success = writeAudioFile(stem, destination, 0.0, playbackLength,
+                                 normalizeExportsEnabled) && success;
+    }
 
     if (success)
     {
@@ -4548,7 +4483,14 @@ void MainComponent::SeparatorOutputThread::run()
 
             const juce::String output(buffer);
 
-            
+            std::cout
+    << "\n========== RAW PYTHON OUTPUT ==========\n"
+    << "Bytes received: "
+    << bytesRead
+    << "\n"
+    << output.toStdString()
+    << "\n========== END PYTHON OUTPUT ==========\n"
+    << std::endl;
 
             {
                 const juce::ScopedLock lock(
@@ -4562,7 +4504,17 @@ void MainComponent::SeparatorOutputThread::run()
         }
 
         if (!owner.separatorProcess->isRunning())
+        {
+            std::cout
+                << "\n========================================\n"
+                << "     SEPARATOR PROCESS STOPPED\n"
+                << "========================================\n"
+                << "Process is no longer running.\n"
+                << "========================================\n"
+                << std::endl;
+
             break;
+        }
 
         wait(10);
     }

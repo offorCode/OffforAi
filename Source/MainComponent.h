@@ -18,6 +18,20 @@
 // Main Application Component
 // ============================================================
 
+class OfforLookAndFeel final : public juce::LookAndFeel_V4
+{
+public:
+    void drawButtonBackground(juce::Graphics&, juce::Button&, const juce::Colour&,
+                              bool isHighlighted, bool isDown) override;
+    void drawButtonText(juce::Graphics&, juce::TextButton&,
+                        bool isHighlighted, bool isDown) override;
+    void drawToggleButton(juce::Graphics&, juce::ToggleButton&,
+                          bool isHighlighted, bool isDown) override;
+    void drawComboBox(juce::Graphics&, int width, int height, bool isButtonDown,
+                      int buttonX, int buttonY, int buttonW, int buttonH,
+                      juce::ComboBox&) override;
+};
+
 class MainComponent
     : public juce::Component,
       public juce::Timer,
@@ -104,6 +118,8 @@ private:
     // LICENSE
     // ========================================================
 
+    juce::ApplicationProperties userPreferences;
+
     LicenseManager licenseManager;
 
     void checkLicenseBeforeSeparation();
@@ -172,6 +188,8 @@ private:
         juce::AudioFormatReaderSource
     > instrumentalReaderSource;
 
+    std::unique_ptr<juce::AudioFormatReaderSource> guitarReaderSource;
+    std::unique_ptr<juce::AudioFormatReaderSource> pianoReaderSource;
 
     std::unique_ptr<
         juce::AudioTransportSource
@@ -189,6 +207,9 @@ private:
         juce::AudioTransportSource
     > instrumentalTransport;
 
+    std::unique_ptr<juce::AudioTransportSource> guitarTransport;
+    std::unique_ptr<juce::AudioTransportSource> pianoTransport;
+
 
     // ========================================================
     // STEM FILES
@@ -201,6 +222,8 @@ private:
     juce::File bassFile;
 
     juce::File instrumentalFile;
+    juce::File guitarFile;
+    juce::File pianoFile;
 
 
     // ========================================================
@@ -210,6 +233,7 @@ private:
     juce::File selectedFile;
 
     juce::File outputFolder;
+    juce::File separatorProgressFile;
 
 
     // ========================================================
@@ -260,18 +284,15 @@ private:
         "STOP"
     };
 
+    juce::Slider masterVolumeSlider;
+    juce::Label masterVolumeLabel;
+
 
     // ========================================================
     // SETTINGS
     // ========================================================
 
-    juce::TextButton settingsButton
-    {
-        "SETTINGS"
-    };
-
-    std::unique_ptr<juce::DialogWindow> settingsWindow;
-
+    OfforLookAndFeel offorLookAndFeel;
     std::unique_ptr<SettingsComponent> settingsComponent;
 
 
@@ -325,6 +346,13 @@ private:
     // ========================================================
 
     juce::Rectangle<int> dropZoneBounds;
+    juce::Rectangle<int> settingsPanelBounds;
+    juce::Rectangle<int> workspacePanelBounds;
+    juce::Rectangle<int> workspaceHeaderBounds;
+    juce::Rectangle<int> progressBarBounds;
+    juce::Rectangle<int> tracksHeaderBounds;
+    juce::Rectangle<int> transportBounds;
+    juce::Rectangle<int> exportActionsBounds;
 
     bool isDragOver = false;
 
@@ -345,9 +373,9 @@ private:
         "Bass"
     };
 
-    StemTrackComponent instrumentalTrack {
-        "Instrumental"
-    };
+    StemTrackComponent instrumentalTrack { "Instrumental" };
+    StemTrackComponent guitarTrack { "Guitar" };
+    StemTrackComponent pianoTrack { "Piano" };
 
 
     // ========================================================
@@ -361,6 +389,8 @@ private:
     juce::Label bassLabel;
 
     juce::Label instrumentalLabel;
+    juce::Label guitarLabel;
+    juce::Label pianoLabel;
 
 
     // ========================================================
@@ -436,15 +466,13 @@ private:
 
     bool autoPlayEnabled = false;
     bool loopSelectionEnabled = false;
+    bool sixStemModeEnabled = true;
+    bool loadedSixStemOutput = false;
+    bool normalizeExportsEnabled = false;
+    int exportFormatId = 1;
+    double masterVolume = 1.0;
 
-    juce::ToggleButton autoPlayButton {
-        "Auto-play"
-    };
-    juce::ToggleButton loopSelectionButton {
-        "Loop Selection"
-    };
-
-    // ========================================================
+// ========================================================
     // PLAYBACK SELECTION
     // ========================================================
 
@@ -516,6 +544,7 @@ private:
     // ========================================================
 
     juce::String separatorOutputBuffer;
+    juce::String pendingOutputLine;
 
     juce::CriticalSection separatorOutputLock;
 
@@ -588,12 +617,14 @@ private:
     void unloadStemAudio();
 
     void updateTrackMixing();
+    void syncOptionalTrackPlayback(bool shouldPlay);
 
     void startPlayback();
 
     void pausePlayback();
 
     void stopPlayback();
+    void updateTransportButtons(bool playing, bool paused);
 
     void updatePlayback();
 

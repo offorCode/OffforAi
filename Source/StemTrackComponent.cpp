@@ -15,6 +15,8 @@ StemTrackComponent::StemTrackComponent(
 
     formatManager.registerBasicFormats();
 
+    thumbnail.addChangeListener(this);
+
     // ======================================================
     // Track Name
     // ======================================================
@@ -239,7 +241,7 @@ StemTrackComponent::StemTrackComponent(
     );
 
     volumeSlider.setTooltip(
-        "Track volume"
+        "Track playback volume. Waveform is auto-scaled for visibility."
     );
 
     volumeSlider.onValueChange = [this]
@@ -331,6 +333,17 @@ StemTrackComponent::StemTrackComponent(
 // ==========================================================
 // Paint
 // ==========================================================
+
+StemTrackComponent::~StemTrackComponent()
+{
+    thumbnail.removeChangeListener(this);
+}
+
+void StemTrackComponent::changeListenerCallback(juce::ChangeBroadcaster* source)
+{
+    juce::ignoreUnused(source);
+    repaint();
+}
 
 void StemTrackComponent::paint(juce::Graphics& g)
 {
@@ -430,8 +443,12 @@ void StemTrackComponent::paint(juce::Graphics& g)
         stemNumber = "02";
     else if (stemName.equalsIgnoreCase("Bass"))
         stemNumber = "03";
-    else if (stemName.equalsIgnoreCase("Instrumental"))
+    else if (stemName.equalsIgnoreCase("Guitar"))
         stemNumber = "04";
+    else if (stemName.equalsIgnoreCase("Piano"))
+        stemNumber = "05";
+    else if (stemName.equalsIgnoreCase("Instrumental"))
+        stemNumber = "06";
 
     auto numberArea =
         channelArea
@@ -531,48 +548,14 @@ void StemTrackComponent::paint(juce::Graphics& g)
     // VOLUME LABEL
     // ======================================================
 
-    auto volumeArea =
-        channelArea
-            .removeFromBottom(36)
-            .reduced(12, 0);
+    auto volumeTextArea = volumeSlider.getBounds().withHeight(11).translated(0, -12);
 
-    g.setColour(
-        juce::Colours::white.withAlpha(0.38f)
-    );
-
-    g.setFont(
-        juce::Font(
-            juce::FontOptions()
-                .withHeight(8.5f)
-        )
-    );
-
-    g.drawText(
-        "VOLUME",
-        volumeArea,
-        juce::Justification::left,
-        false
-    );
-
-    // ======================================================
-    // VOLUME VALUE
-    // ======================================================
-
-    g.setColour(
-        juce::Colours::white.withAlpha(0.65f)
-    );
-
-    g.drawText(
-        juce::String(
-            juce::Decibels::gainToDecibels(
-                juce::jmax(0.0001f, volume)
-            ),
-            1
-        ) + " dB",
-        volumeArea,
-        juce::Justification::right,
-        false
-    );
+    g.setColour(juce::Colours::white.withAlpha(0.55f));
+    g.setFont(juce::Font(juce::FontOptions().withHeight(8.5f)));
+    g.drawText("VOL", volumeTextArea, juce::Justification::left, false);
+    g.drawText(juce::String(juce::Decibels::gainToDecibels(
+                   juce::jmax(0.0001f, volume)), 1) + " dB",
+               volumeTextArea, juce::Justification::right, false);
 
 
     // ======================================================
@@ -644,12 +627,17 @@ void StemTrackComponent::paint(juce::Graphics& g)
                 : juce::Colour(0xffc4511c)
         );
 
-        thumbnail.drawChannels(
+        const float peak = thumbnail.getApproximatePeak();
+        const float waveformZoom = peak > 0.000001f
+            ? juce::jmin(2000.0f, 0.85f / peak)
+            : 1.0f;
+        thumbnail.drawChannel(
             g,
             waveformArea.reduced(0, 4),
             0.0,
             thumbnail.getTotalLength(),
-            1.0f
+            0,
+            waveformZoom
         );
 
         // ==================================================
@@ -712,12 +700,13 @@ void StemTrackComponent::paint(juce::Graphics& g)
                 juce::Colour(0xffff8a45)
             );
 
-            thumbnail.drawChannels(
+            thumbnail.drawChannel(
                 g,
                 selectionArea,
                 selectionStart,
                 selectionEnd,
-                1.0f
+                0,
+                waveformZoom
             );
 
             // Selection boundaries
@@ -923,7 +912,7 @@ void StemTrackComponent::resized()
     // ======================================================
 
     auto nameArea =
-        area.removeFromLeft(150);
+        area.removeFromLeft(172);
 
     // ======================================================
     // CHECKBOX
@@ -959,7 +948,7 @@ void StemTrackComponent::resized()
 
     // Keep the name at the top.
     auto nameLabelArea =
-        nameArea.removeFromTop(40);
+        nameArea.removeFromTop(24);
 
     nameLabel.setBounds(
         nameLabelArea
@@ -970,15 +959,8 @@ void StemTrackComponent::resized()
     // ======================================================
 
     // Push volume control down.
-    auto volumeArea =
-        nameArea.removeFromBottom(30);
-
-    volumeSlider.setBounds(
-        volumeArea.reduced(
-            8,
-            5
-        )
-    );
+    auto volumeArea = nameArea.removeFromBottom(18);
+    volumeSlider.setBounds(volumeArea.reduced(6, 1));
 
     // ======================================================
     // Right M / S Controls

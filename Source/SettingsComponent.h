@@ -29,6 +29,7 @@ public:
     ) override;
 
     void resized() override;
+    void setEmbeddedMode(bool embedded);
 
 
     // ========================================================
@@ -56,6 +57,8 @@ public:
         bool enabled
     );
 
+    void setSixStemModeEnabled(bool enabled);
+
     // ========================================================
     // LICENSE
     // ========================================================
@@ -77,7 +80,8 @@ public:
         bool autoPlay,
         bool loopSelection,
         int exportFormat,
-        bool normalize
+        bool normalize,
+        bool sixStemMode
     )> onSettingsChanged;
 
 
@@ -114,7 +118,11 @@ private:
     juce::ComboBox exportFormatBox;
 
     juce::ToggleButton normalizeButton {
-        "Normalize"
+        "Normalize exports"
+    };
+
+    juce::ToggleButton sixStemModeButton {
+        "Split guitar + piano (6-stem)"
     };
 
 
@@ -125,6 +133,7 @@ private:
     juce::TextButton closeButton {
         "CLOSE"
     };
+    bool embeddedMode = false;
 
     // ========================================================
     // LICENSE

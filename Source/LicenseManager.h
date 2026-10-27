@@ -58,7 +58,7 @@ private:
     // SETTINGS
     // ========================================================
 
-    static constexpr int FREE_USES = 60;
+    static constexpr int FREE_USES = 10;
 
     static constexpr const char* PRODUCT_NAME =
         "OfforStemSplitter";

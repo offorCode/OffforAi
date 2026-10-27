@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.22)
 
-project(OfforStemSplitter VERSION 1.0.0)
+project(OfforStemSplitter VERSION 1.1.0)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -77,3 +77,14 @@ target_link_libraries(OfforStemSplitter
 
         OfforStemSplitterResources
 )
+
+# Keep a relocatable runtime beside the executable for both development builds
+# and packaged copies of the application.
+foreach(RUNTIME_PART IN ITEMS demucs-runtime demucs-env demucs-engine)
+    add_custom_command(TARGET OfforStemSplitter POST_BUILD
+        COMMAND ${CMAKE_COMMAND} -E copy_directory
+            "${CMAKE_CURRENT_SOURCE_DIR}/../${RUNTIME_PART}"
+            "$<TARGET_FILE_DIR:OfforStemSplitter>/${RUNTIME_PART}"
+        VERBATIM
+    )
+endforeach()

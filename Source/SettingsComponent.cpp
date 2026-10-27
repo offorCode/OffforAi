@@ -126,6 +126,10 @@ SettingsComponent::SettingsComponent()
     );
 
 
+    sixStemModeButton.setToggleState(true, juce::dontSendNotification);
+    addAndMakeVisible(sixStemModeButton);
+
+
     // ======================================================
     // CLOSE
     // ======================================================
@@ -191,7 +195,8 @@ SettingsComponent::SettingsComponent()
                 autoPlayButton.getToggleState(),
                 loopSelectionButton.getToggleState(),
                 exportFormatBox.getSelectedId(),
-                normalizeButton.getToggleState()
+                normalizeButton.getToggleState(),
+                sixStemModeButton.getToggleState()
             );
         }
     };
@@ -207,6 +212,9 @@ SettingsComponent::SettingsComponent()
         notifySettingsChanged;
 
     normalizeButton.onClick =
+        notifySettingsChanged;
+
+    sixStemModeButton.onClick =
         notifySettingsChanged;
 }
 
@@ -255,86 +263,42 @@ void SettingsComponent::paint(
 
 void SettingsComponent::resized()
 {
-    auto area =
-        getLocalBounds()
-            .reduced(24);
+    auto area = getLocalBounds().reduced(16, 14);
 
-    // ======================================================
-    // TITLE
-    // ======================================================
+    titleLabel.setBounds(area.removeFromTop(34));
+    area.removeFromTop(8);
 
-    titleLabel.setBounds(
-        area.removeFromTop(34)
-    );
-
+    playbackLabel.setBounds(area.removeFromTop(20));
+    autoPlayButton.setBounds(area.removeFromTop(30));
+    loopSelectionButton.setBounds(area.removeFromTop(30));
     area.removeFromTop(12);
 
+    exportLabel.setBounds(area.removeFromTop(20));
+    exportFormatBox.setBounds(area.removeFromTop(32));
+    area.removeFromTop(4);
+    normalizeButton.setBounds(area.removeFromTop(30));
+    sixStemModeButton.setBounds(area.removeFromTop(36));
+    area.removeFromTop(12);
 
-    // ======================================================
-    // PLAYBACK
-    // ======================================================
+    licenseLabel.setBounds(area.removeFromTop(22));
+    activateButton.setBounds(area.removeFromTop(38));
 
-    playbackLabel.setBounds(
-        area.removeFromTop(24)
-    );
+    if (embeddedMode)
+    {
+        closeButton.setVisible(false);
+    }
+    else
+    {
+        closeButton.setVisible(true);
+        closeButton.setBounds(area.removeFromBottom(40));
+    }
+}
 
-    autoPlayButton.setBounds(
-        area.removeFromTop(32)
-    );
-
-    loopSelectionButton.setBounds(
-        area.removeFromTop(32)
-    );
-
-    area.removeFromTop(18);
-
-
-    // ======================================================
-    // EXPORT
-    // ======================================================
-
-    exportLabel.setBounds(
-        area.removeFromTop(24)
-    );
-
-    exportFormatBox.setBounds(
-        area.removeFromTop(34)
-    );
-
-    area.removeFromTop(6);
-
-    normalizeButton.setBounds(
-        area.removeFromTop(32)
-    );
-
-    area.removeFromTop(22);
-
-
-    // ======================================================
-    // LICENSE
-    // ======================================================
-
-    licenseLabel.setBounds(
-        area.removeFromTop(24)
-    );
-
-    activateButton.setBounds(
-        area.removeFromTop(42)
-    );
-
-    area.removeFromTop(24);
-
-
-    // ======================================================
-    // CLOSE
-    // ======================================================
-
-    auto closeArea =
-        area.removeFromBottom(52);
-
-    closeButton.setBounds(
-        closeArea.reduced(0, 4)
-    );
+void SettingsComponent::setEmbeddedMode(bool embedded)
+{
+    embeddedMode = embedded;
+    closeButton.setVisible(!embeddedMode);
+    resized();
 }
 
 
@@ -415,6 +379,11 @@ void SettingsComponent::setNormalizeEnabled(
         enabled,
         juce::dontSendNotification
     );
+}
+
+void SettingsComponent::setSixStemModeEnabled(bool enabled)
+{
+    sixStemModeButton.setToggleState(enabled, juce::dontSendNotification);
 }
 
 // ============================================================

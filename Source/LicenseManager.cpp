@@ -471,22 +471,13 @@ bool LicenseManager::checkUsage()
     // Read server result
     // --------------------------------------------------------
 
-    lastServerAllowed =
-        static_cast<bool>(
-            object->getProperty("allowed")
-        );
-
+    const bool serverAllows =
+        static_cast<bool>(object->getProperty("allowed"));
     lastServerFreeUses =
-        static_cast<int>(
-            object->getProperty("freeUses")
-        );
+        static_cast<int>(object->getProperty("freeUses"));
+    lastServerFreeUsesLimit = FREE_USES;
+    lastServerAllowed = serverAllows && lastServerFreeUses < FREE_USES;
 
-    lastServerFreeUsesLimit =
-        static_cast<int>(
-            object->getProperty("freeUsesLimit")
-        );
-
-    // --------------------------------------------------------
     // Keep local usage synchronized with server.
     // --------------------------------------------------------
 
@@ -544,6 +535,9 @@ bool LicenseManager::activate(
 
     if (installationId.isEmpty())
         return false;
+
+    // Register at activation time so startup and free offline use stay local.
+    registerInstallation();
 
     // --------------------------------------------------------
     // BUILD JSON
@@ -616,9 +610,7 @@ bool LicenseManager::activate(
 
     if (stream == nullptr)
     {
-        std::cout
-            << "LICENSE: ACTIVATION CONNECTION FAILED"
-            << std::endl;
+       
 
         return false;
     }
@@ -626,17 +618,10 @@ bool LicenseManager::activate(
     const auto response =
         stream->readEntireStreamAsString();
 
-    std::cout
-        << "LICENSE: ACTIVATION RESPONSE: "
-        << response.toStdString()
-        << std::endl;
 
     if (statusCode < 200 || statusCode >= 300)
     {
-        std::cout
-            << "LICENSE: ACTIVATION HTTP ERROR: "
-            << statusCode
-            << std::endl;
+        
 
         return false;
     }

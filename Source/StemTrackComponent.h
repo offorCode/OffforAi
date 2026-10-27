@@ -3,7 +3,7 @@
 #include <JuceHeader.h>
 
 class StemTrackComponent
-    : public juce::Component
+    : public juce::Component, private juce::ChangeListener
 {
 public:
 
@@ -15,7 +15,7 @@ public:
         const juce::String& stemName
     );
 
-    ~StemTrackComponent() override = default;
+    ~StemTrackComponent() override;
 
 
     // ==========================================================
@@ -27,6 +27,8 @@ public:
     ) override;
 
     void resized() override;
+
+    void changeListenerCallback(juce::ChangeBroadcaster* source) override;
 
 
     // ==========================================================

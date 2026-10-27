@@ -1,4 +1,7 @@
 build/
+build-clean/
+build-codex/
+build-vs18/
 demucs-env/
 output/
 separated/
@@ -10,3 +13,4 @@ input/
 .vs/
 .vscode/
 __pycache__/
+*.rar
